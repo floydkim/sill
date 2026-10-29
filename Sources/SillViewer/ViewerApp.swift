@@ -38,7 +38,19 @@ struct ViewerScreen: View {
                 }.padding(12).background(Color.orange.opacity(0.12))
             }
             if client.connected {
-                SurfaceView(surface: surface).frame(maxWidth: .infinity, maxHeight: .infinity)
+                SurfaceView(surface: surface)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay {
+                        if !client.pictureReady {
+                            VStack(spacing: 12) {
+                                ProgressView()
+                                Text("Waiting for the host’s picture…").foregroundStyle(.secondary)
+                            }
+                            .padding(24)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                            .allowsHitTesting(false)
+                        }
+                    }
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
@@ -58,9 +70,13 @@ struct ViewerScreen: View {
                                 }
                             }
                         }
-                        Text("Nearby Macs").font(.headline)
+                        HStack {
+                            Text("Nearby Macs").font(.headline)
+                            Spacer()
+                            Button("Refresh") { client.refresh() }.disabled(client.busy)
+                        }
                         if client.nearby.isEmpty {
-                            Label("Searching on your local network…", systemImage: "wifi")
+                            Label("No Macs found yet. Open Sill on the host, check Local Network permission, then Refresh.", systemImage: "wifi")
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(client.nearby) { host in
@@ -121,22 +137,35 @@ final class ViewerAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate
     private var surface: ViewerSurface?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let client = ViewerClient()
-        let surface = ViewerSurface(frame: CGRect(x: 0, y: 0, width: 1200, height: 800))
-        surface.bind(client)
-        self.client = client
-        self.surface = surface
         let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 1200, height: 800),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.title = "Sill Viewer"
         window.delegate = self
-        window.contentView = NSHostingView(rootView: ViewerScreen(client: client, surface: surface))
+        window.contentView = NSHostingView(rootView:
+            VStack(spacing: 16) {
+                ProgressView()
+                Text("Preparing secure connections…")
+                Text("If macOS asks for Keychain access, allow Sill Viewer to use its identity.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity))
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
         NSApp.activate(ignoringOtherApps: true)
         installMenu()
+        // Keychain can wait for user interaction; the window must already be usable.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let client = ViewerClient()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                let surface = ViewerSurface(frame: CGRect(x: 0, y: 0, width: 1200, height: 800))
+                surface.bind(client)
+                self.client = client
+                self.surface = surface
+                window.contentView = NSHostingView(rootView: ViewerScreen(client: client, surface: surface))
+            }
+        }
     }
 
     private func installMenu() {

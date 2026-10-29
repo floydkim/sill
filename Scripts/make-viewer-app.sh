@@ -10,9 +10,17 @@ swift build -c release --product SillViewer
 bin="$(swift build -c release --show-bin-path)"
 app="$PWD/.build/Sill Viewer.app"
 mkdir -p "$app/Contents/MacOS"
-cp "$bin/SillViewer" "$app/Contents/MacOS/SillViewer"
+# SwiftPM records the deployment target as the SDK; stamp the actual SDK for macOS app behavior.
+minos="$(xcrun vtool -show-build "$bin/SillViewer" | awk '$1 == "minos" && !found { print $2; found = 1 }')"
+xcrun vtool -set-build-version macos "$minos" "$(xcrun --sdk macosx --show-sdk-version)" \
+    -output "$app/Contents/MacOS/SillViewer" "$bin/SillViewer"
 cp Packaging/Viewer-Info.plist "$app/Contents/Info.plist"
-codesign --force --sign "${SILL_VIEWER_SIGN_IDENTITY:--}" "$app"
+identity="${SILL_VIEWER_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk '/"Apple Development: / { print $2; exit }' || true)}"
+if [ -z "$identity" ]; then
+    identity="-"
+    echo "No Apple Development identity found; using ad hoc signing. Keychain may ask for access again after rebuilding." >&2
+fi
+codesign --force --sign "$identity" "$app"
 codesign --verify --strict "$app"
 echo "$app"
 if [ "${1:-}" = --open ]; then open "$app"; fi

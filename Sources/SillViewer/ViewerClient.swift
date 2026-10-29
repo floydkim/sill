@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import CryptoKit
 import Network
+import OSLog
 import StreamProtocol
 
 struct NearbyHost: Identifiable {
@@ -13,24 +14,32 @@ struct NearbyHost: Identifiable {
 }
 
 // Network callbacks and UI state use the main queue. Only the expensive code KDF leaves it.
-final class ViewerClient: ObservableObject {
+final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate, NetServiceDelegate {
     @Published var nearby: [NearbyHost] = []
     @Published var saved: [ViewerHost] = []
-    @Published var status = "Looking for Macs…"
+    @Published var status = "Looking for Macs…" {
+        didSet { logger.info("\(self.status, privacy: .public)") }
+    }
     @Published var connected = false
+    @Published var pictureReady = false
     @Published var busy = false
     @Published var windows: [WindowInfo] = []
     @Published var source: StreamSource = .none
     @Published var pairing = false
     @Published var pairingName = "Mac"
-    @Published var error: String?
+    @Published var error: String? {
+        didSet { if let error { logger.error("\(error, privacy: .public)") } }
+    }
     var onParameters: ((ParameterSets) -> Void)?
     var onFrame: ((Data, Bool) -> Void)?
     var onClear: (() -> Void)?
     var onCursor: ((NSCursor) -> Void)?
     var onConnected: (() -> Void)?
 
-    private var browser: NWBrowser?
+    private let logger = Logger(subsystem: "local.sill.viewer", category: "connection")
+    private var pictureDeadline: DispatchWorkItem?
+    private var browser: NetServiceBrowser?
+    private var services: [NetService] = []
     private var identity: RemoteIdentity?
     private var connection: NWConnection?
     private var reader: MessageReader?
@@ -44,7 +53,8 @@ final class ViewerClient: ObservableObject {
     private var lastFrameAt = Date()
     private var heartbeat: Timer?
 
-    init() {
+    override init() {
+        super.init()
         do {
             identity = try ViewerStore.identity()
             saved = try ViewerStore.hosts()
@@ -53,25 +63,60 @@ final class ViewerClient: ObservableObject {
 
     func browse() {
         guard browser == nil else { return }
-        let parameters = NWParameters.tcp
-        let browser = NWBrowser(for: .bonjour(type: "_sill._tcp", domain: nil), using: parameters)
+        logger.notice("Starting Bonjour discovery")
+        let browser = NetServiceBrowser()
+        browser.delegate = self
         self.browser = browser
-        browser.browseResultsChangedHandler = { [weak self] results, _ in
-            self?.nearby = results.compactMap { result in
-                guard case .service(let name, _, _, _) = result.endpoint else { return nil }
-                var tag: String?
-                var encrypted = false
-                if case .bonjour(let txt) = result.metadata {
-                    tag = txt.dictionary[RecognitionTag.txtKey]
-                    encrypted = HomeDoorTXT.door(txt) != .plain
-                }
-                return NearbyHost(name: name, endpoint: result.endpoint, tag: tag, encrypted: encrypted)
-            }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        }
-        browser.stateUpdateHandler = { [weak self] state in
-            if case .failed(let error) = state { self?.error = "Discovery failed: \(error.localizedDescription). Check Local Network permission." }
-        }
-        browser.start(queue: .main)
+        browser.searchForServices(ofType: "_sill._tcp.", inDomain: "local.")
+    }
+
+    func refresh() {
+        browser?.stop()
+        browser = nil
+        for service in services { service.stopMonitoring(); service.stop() }
+        services = []
+        nearby = []
+        browse()
+    }
+
+    func netServiceBrowser(_ browser: NetServiceBrowser, didFind service: NetService, moreComing: Bool) {
+        guard browser === self.browser else { return }
+        guard !services.contains(where: { $0.name == service.name && $0.domain == service.domain && $0.type == service.type }) else { return }
+        logger.notice("Discovered \(service.name, privacy: .public); resolving address")
+        services.append(service)
+        service.delegate = self
+        service.startMonitoring()
+        service.resolve(withTimeout: 5)
+    }
+
+    func netServiceBrowser(_ browser: NetServiceBrowser, didRemove service: NetService, moreComing: Bool) {
+        guard browser === self.browser else { return }
+        services.removeAll { $0.name == service.name && $0.domain == service.domain && $0.type == service.type }
+        updateNearby()
+    }
+
+    func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
+        guard browser === self.browser else { return }
+        error = "Discovery unavailable (\(errorDict)). Allow Local Network for Sill Viewer in System Settings → Privacy & Security, then press Refresh."
+    }
+
+    func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
+        logger.error("Cannot resolve \(sender.name, privacy: .public): \(String(describing: errorDict), privacy: .public)")
+    }
+
+    func netServiceDidResolveAddress(_ sender: NetService) { updateNearby() }
+    func netService(_ sender: NetService, didUpdateTXTRecord data: Data) { updateNearby() }
+
+    private func updateNearby() {
+        nearby = services.compactMap { service in
+            guard let host = service.hostName, (1...65535).contains(service.port),
+                  let port = NWEndpoint.Port(rawValue: UInt16(service.port)) else { return nil }
+            let record = service.txtRecordData().map(NetService.dictionary(fromTXTRecord:)) ?? [:]
+            let txt = record.mapValues { String(data: $0, encoding: .utf8) ?? "1" }
+            return NearbyHost(name: service.name, endpoint: .hostPort(host: NWEndpoint.Host(host), port: port),
+                              tag: txt[RecognitionTag.txtKey], encrypted: HomeDoorTXT.door(txt) != .plain)
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        logger.notice("Bonjour found \(self.nearby.count) hosts")
     }
 
     func connect(_ host: NearbyHost) {
@@ -164,7 +209,10 @@ final class ViewerClient: ObservableObject {
                         }
                         guard ViewerTrust.accepts(result, key: key, host: fingerprint, device: identity.fingerprint),
                               let recognition = result.recognitionKey.flatMap(Base64URL.decode) else {
-                            self.fail(result.ok ? "The host could not prove its identity." : "Pairing refused (\(result.reason ?? "unknown")). Show a fresh code and try again.")
+                            self.closeConnection()
+                            self.busy = false
+                            self.status = "Enter the code shown on \(self.pairingName)."
+                            self.error = result.ok ? "The host could not prove its identity." : "Pairing refused (\(result.reason ?? "unknown")). Check the code or show a fresh code on the host and try again."
                             return
                         }
                         let host = ViewerHost(name: result.name ?? self.pairingName, fingerprint: fingerprint,
@@ -187,7 +235,9 @@ final class ViewerClient: ObservableObject {
         receivedCatalog = false
         dial(endpoint: endpoint, alpn: RemoteTLS.sessionALPN, pin: pin) { [weak self] c, _ in
             guard let self else { return }
-            self.send(.hello, Wire.encode(Hello(appVersion: "0.5.1", build: "mac-viewer-1", protocol: SillProtocol.current,
+            self.send(.hello, Wire.encode(Hello(appVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0",
+                                               build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev",
+                                               protocol: SillProtocol.current,
                                                device: Host.current().localizedName ?? "Sill Viewer")))
             self.sendViewport()
             self.read(c) { [weak self] header, data in self?.received(header, data) }
@@ -248,6 +298,7 @@ final class ViewerClient: ObservableObject {
                 deadline?.cancel()
                 busy = false
                 connected = true
+                awaitPicture()
                 lastFrameAt = Date()
                 heartbeat = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
                     guard let self else { return }
@@ -280,18 +331,39 @@ final class ViewerClient: ObservableObject {
 
     func select(_ value: StreamSource) {
         onClear?()
+        awaitPicture()
         source = value
         send(.selectSource, Wire.encode(value))
     }
 
     func viewport(_ size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
+        guard size != lastViewport else { return }
         lastViewport = size
         if connected { sendViewport() }
     }
 
     private func sendViewport() {
         send(.viewport, Wire.encode(Viewport(width: lastViewport.width, height: lastViewport.height, scale: nil, localCursor: true, fps: 60)))
+    }
+
+    func awaitPicture() {
+        pictureReady = false
+        pictureDeadline?.cancel()
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.connected, !self.pictureReady else { return }
+            self.error = "Connected, but no picture arrived. Check Screen Recording permission for Sill on the host Mac, keep it awake, then choose Desktop or a window again."
+            self.requestKeyframe()
+        }
+        pictureDeadline = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: timeout)
+    }
+
+    func receivedPicture(size: CGSize) {
+        guard !pictureReady else { return }
+        pictureReady = true
+        pictureDeadline?.cancel()
+        logger.info("Picture received: \(Int(size.width))×\(Int(size.height))")
     }
 
     func input(_ value: InputEvent) { if connected { send(.input, Wire.encode(value)) } }
@@ -316,6 +388,7 @@ final class ViewerClient: ObservableObject {
         onClear?()
         closeConnection(graceful: connected)
         connected = false
+        pictureReady = false
         busy = false
         pairing = false
         windows = []
@@ -324,6 +397,8 @@ final class ViewerClient: ObservableObject {
     }
 
     private func closeConnection(graceful: Bool = false) {
+        pictureDeadline?.cancel()
+        pictureDeadline = nil
         heartbeat?.invalidate()
         heartbeat = nil
         deadline?.cancel()

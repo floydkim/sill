@@ -94,6 +94,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
             parameterSetSizes: ps.sets.map(\.count), nalUnitHeaderLength: Int32(ps.nalUnitHeaderLength),
             extensions: nil, formatDescriptionOut: &desc)
         guard status == noErr, let desc else { client?.error = "Cannot decode HEVC format (\(status))."; return }
+        client?.awaitPicture()
         lastParameters = ps.encoded()
         format = desc
         let dimensions = CMVideoFormatDescriptionGetDimensions(desc)
@@ -132,6 +133,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
         }
         waitingForKeyframe = false
         videoLayer.enqueue(sample)
+        client?.receivedPicture(size: videoSize)
         decodedFrames += 1
         onDecodedFrame?()
     }

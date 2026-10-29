@@ -12,10 +12,11 @@ struct ViewerHost: Codable, Identifiable {
 }
 
 enum ViewerStore {
-    private static let service = "local.sill.viewer"
+    // App and CLI builds have separate identities and Keychain access controls.
+    private static let service = "\(Bundle.main.bundleIdentifier ?? "local.sill.viewer.cli").credentials"
 
     static func identity() throws -> RemoteIdentity {
-        let tag = Data("local.sill.viewer.identity".utf8)
+        let tag = Data("\(service).tls-key".utf8)
         let query: [String: Any] = [kSecClass as String: kSecClassKey,
                                    kSecAttrApplicationTag as String: tag,
                                    kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
