@@ -12,10 +12,23 @@ cd ~/projects/sill
 Scripts/make-viewer-app.sh --open
 ```
 
-The local build is `.build/Sill Viewer.app`. The script signs it ad hoc;
-this is a local development build, not a notarized distribution. For a stable
-signing identity across rebuilds, set `SILL_VIEWER_SIGN_IDENTITY` to your own
-Apple Development identity before running the script.
+The local build is `.build/Sill Viewer.app`. The script uses an available Apple Development identity, with ad hoc signing
+as a fallback. Override it with `SILL_VIEWER_SIGN_IDENTITY` if needed. This is
+a development build, not a notarized distribution. Stable signing keeps
+Keychain access consistent across rebuilds. The app and CLI keep separate
+Keychain identities, so command-line checks cannot claim the app's key.
+The app shows its window before loading credentials to keep Keychain waits
+visible.
+
+To build both apps and a transfer-ready ZIP:
+
+```sh
+Scripts/package-macos.sh
+```
+
+The result is `.build/Sill-Mac-to-Mac.zip`, with `Sill.app` for the host,
+`Sill Viewer.app` for the viewer, the license and Korean setup instructions.
+The default build targets the current Mac architecture (Apple silicon here).
 
 ## Connect two Macs
 
@@ -23,7 +36,8 @@ Apple Development identity before running the script.
    Recording, Accessibility, and Local Network when requested. Keep it awake
    and logged in. Alternatively build the host with `Scripts/make-app.sh`.
 2. On the **viewer Mac**, launch Sill Viewer and allow Local Network discovery.
-   Both Macs should initially be on the same LAN.
+   Both Macs should initially be on the same LAN. Use **Refresh** after changing
+   networks or granting Local Network permission.
 3. Choose the host under **Nearby Macs**. Enter the 12-digit pairing code
    displayed on the host. If Sill does not show one automatically, choose
    **Pair iPhone or iPad…** in the host's menu; this same pairing flow also
@@ -50,7 +64,8 @@ movement of a mouse attached to the host is not displayed as a second pointer.
 is the host's **Remote Access** port: enable Remote Access and manually open a
 pairing code on the host before the first connection by address. Use your
 existing VPN (for example Tailscale) when the Macs are on different networks.
-A discovered LAN host uses its advertised port automatically.
+A discovered LAN host uses its advertised port automatically. If discovery stays
+empty, enabling Remote Access also provides a direct-address path on the same LAN.
 
 All connections require TLS 1.3. Plain development hosts are refused.
 Typed-code pairing checks both proofs and binds them to the certificates from
@@ -92,6 +107,11 @@ shares the host's one active source, as in upstream Sill.
   12 submitted frames with the AV display layer rendering, input cleanup while
   the session is still connected, and reconnect using the saved pin.
 - The existing message-reader checks passed.
-- Two physical Macs, long sessions, perceived latency, audio and IME behavior
-  were not tested. Native UI inspection was unavailable because the local GUI
-  automation service timed out; app process launch was confirmed.
+- The built app was opened and inspected through its native UI. Manual typed-code
+  pairing to a real synthetic host and HEVC test-pattern display were confirmed.
+- Startup Keychain blocking was reproduced using a process sample and fixed by
+  separating the app/CLI credential namespaces and using stable development signing.
+- Two physical Macs, perceived latency, audio and IME behavior remain unverified.
+  This Mac's host is visible to DNS-SD discovery tools; same-Mac discovery from
+  the app needs more investigation. Manual address entry is available.
+- The follow-up prioritized building and operating the app; no new tests were added.
