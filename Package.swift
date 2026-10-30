@@ -9,6 +9,7 @@ let package = Package(
         // The CLI keeps the product name SillHost, so `swift run -c release SillHost …` and
         // .build/release/SillHost are what they always were.
         .executable(name: "SillHost", targets: ["SillHostCLI"]),
+        .executable(name: "SillViewer", targets: ["SillViewer"]),
         // Sill.app's executable. Scripts/make-app.sh wraps it into the bundle and signs it.
         .executable(name: "SillMenuBar", targets: ["SillMenuBar"]),
         // No product for SillHostCore: the iOS project links this package and must never see it.
@@ -26,6 +27,8 @@ let package = Package(
         .executableTarget(name: "SillMenuBar", dependencies: ["SillHostCore", "StreamProtocol"]),
         // Milestone 3 spike: virtual display + window move + capture. Its VirtualDisplay.swift
         // is a symlink to the host's copy. Not shipped.
+        .executableTarget(name: "SillViewer", dependencies: ["StreamProtocol"]),
+        .testTarget(name: "SillViewerTests", dependencies: ["SillViewer", "StreamProtocol"]),
         .executableTarget(name: "CaptureProbe"),
         .executableTarget(name: "VirtualDisplayProbe"),
     ]

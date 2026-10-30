@@ -1,5 +1,9 @@
 # Sill
 
+This fork includes **Sill Viewer for macOS**, a native Mac-to-Mac client.
+Build and launch with `Scripts/make-viewer-app.sh --open`; see
+[the macOS viewer guide](docs/MACOS-VIEWER.md) for pairing, controls and tests.
+
 Any window from your Mac, on your iPhone and iPad.
 
 Sill shows a window from your Mac, or the whole desktop, on your iPhone or
