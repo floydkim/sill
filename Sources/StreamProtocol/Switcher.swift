@@ -4,7 +4,7 @@ import Foundation
 public enum StreamSource: Codable, Hashable {
     case none
     case window(UInt32)   // CGWindowID, stable for the life of the window
-    case desktop          // the Mac's main display
+    case desktop          // the host-selected monitor; legacy clients need no new enum case
 }
 
 /// One on-screen Mac window, as the client sees it. WindowList order is stable: first seen first.
@@ -19,6 +19,19 @@ public struct WindowInfo: Codable, Hashable, Identifiable {
     public init(id: UInt32, title: String, appName: String, bundleID: String, width: Int, height: Int) {
         self.id = id; self.title = title; self.appName = appName; self.bundleID = bundleID
         self.width = width; self.height = height
+    }
+}
+
+/// A host desktop that can be selected with kind 45. Dimensions are screen points.
+public struct DisplayInfo: Codable, Hashable, Identifiable, Sendable {
+    public var id: UInt32
+    public var name: String
+    public var width: Int
+    public var height: Int
+    public var isMain: Bool
+
+    public init(id: UInt32, name: String, width: Int, height: Int, isMain: Bool) {
+        self.id = id; self.name = name; self.width = width; self.height = height; self.isMain = isMain
     }
 }
 
@@ -68,6 +81,10 @@ public struct WindowList: Codable {
     /// sends them as keys only to a host that says so (the device's KeyTyping). Set after the initializer,
     /// whose parameters stay as they were: `list.keyRepeat = KeyRepeat.generation`.
     public var keyRepeat: Int?
+    /// nil on older hosts: the client must not send selectDisplay to them.
+    public var displays: [DisplayInfo]?
+    /// The selected desktop monitor, retained while an app window streams.
+    public var desktopDisplayID: UInt32?
 
     public init(macName: String, windows: [WindowInfo], active: StreamSource, launchID: String? = nil,
                 hostVersion: String? = nil, protocol: Int? = nil, gestures: Int? = nil, clipboard: Int? = nil) {

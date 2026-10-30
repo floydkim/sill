@@ -20,6 +20,17 @@ final class WindowCatalog {
     private(set) var windows: [SCWindow] = []
     private(set) var infos: [WindowInfo] = []
     private(set) var display: SCDisplay?
+    private var displays: [SCDisplay] = []
+    private var preferredDisplayID: UInt32?
+    private(set) var displayInfos: [DisplayInfo] = []
+    var onDisplaysChanged: (() -> Void)?
+
+    func chooseDisplay(_ id: UInt32) -> Bool {
+        guard let selected = displays.first(where: { $0.displayID == id }) else { return false }
+        preferredDisplayID = id
+        display = selected
+        return true
+    }
     private(set) var installedApps: [AppInfo] = []
     /// This process as ScreenCaptureKit lists it, from the last look: the Desktop stream leaves it
     /// out, so Sill's own windows (the pairing code above all) never reach a device. Nil when it
@@ -273,9 +284,19 @@ final class WindowCatalog {
         appliedSeq = seq
         lookedAt = .now
         ownApplication = content.applications.first { $0.processID == Self.ownPID }
-        display = preferMainDisplay
-            ? (content.displays.first { $0.displayID == CGMainDisplayID() } ?? content.displays.first)
-            : content.displays.first
+        let previousDisplayID = display?.displayID
+        displays = content.displays.filter { !StreamCoordinator.isSillVirtualDisplay($0.displayID) }
+        display = preferredDisplayID.flatMap { id in displays.first { $0.displayID == id } }
+            ?? (preferMainDisplay ? (displays.first { $0.displayID == CGMainDisplayID() } ?? displays.first) : displays.first)
+        if preferredDisplayID != nil { preferredDisplayID = display?.displayID }
+        let screens = NSScreen.screens
+        let newDisplays = displays.map { d in
+            let screen = screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == d.displayID }
+            return DisplayInfo(id: d.displayID, name: screen?.localizedName ?? "Display \(d.displayID)",
+                               width: Int(d.frame.width), height: Int(d.frame.height), isMain: d.displayID == CGMainDisplayID())
+        }.sorted { lhs, rhs in lhs.isMain != rhs.isMain ? lhs.isMain : lhs.id < rhs.id }
+        let displaysChanged = newDisplays != displayInfos || previousDisplayID != display?.displayID
+        displayInfos = newDisplays
         var visible = content.windows.filter { w in
             guard let app = w.owningApplication, !app.applicationName.isEmpty else { return false }
             return w.windowLayer == 0                                  // drops widgets, wallpaper, backstop
@@ -303,6 +324,7 @@ final class WindowCatalog {
             infos = newInfos
             onWindowsChanged?(newInfos)
         }
+        if displaysChanged { onDisplaysChanged?() }
     }
 
     /// Thumbnail cadence, per window: every pass (2 s) if its `WindowInfo` changed since its last

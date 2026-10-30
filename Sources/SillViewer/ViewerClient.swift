@@ -27,6 +27,8 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     @Published var windows: [WindowInfo] = []
     @Published var source: StreamSource = .none
     @Published var thumbnails: [UInt32: NSImage] = [:]
+    @Published var displays: [DisplayInfo] = []
+    @Published var desktopDisplayID: UInt32?
     @Published var supportsSpaces = false
     @Published var hostSettings: HostSettingsState?
     @Published var settingsPending = false
@@ -333,6 +335,8 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         case .windowList:
             guard let list = Wire.decode(WindowList.self, from: data) else { fail("Invalid window list."); return }
             windows = list.windows
+            displays = list.displays ?? []
+            desktopDisplayID = list.desktopDisplayID
             let windowIDs = Set(windows.map(\.id))
             thumbnails = thumbnails.filter { windowIDs.contains($0.key) }
             supportsSpaces = (list.gestures ?? 0) >= TrackpadGesture.generation
@@ -396,7 +400,20 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         }
     }
 
+    func selectDisplay(_ id: UInt32) {
+        guard connected, displays.contains(where: { $0.id == id }) else { return }
+        onClear?()
+        awaitPicture()
+        source = .desktop
+        desktopDisplayID = id
+        send(.selectDisplay, Wire.encode(id))
+    }
+
     func select(_ value: StreamSource) {
+        if value == .desktop, let id = desktopDisplayID, displays.contains(where: { $0.id == id }) {
+            selectDisplay(id)
+            return
+        }
         onClear?()
         awaitPicture()
         source = value
@@ -501,6 +518,8 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         windows = []
         thumbnails = [:]
         supportsSpaces = false
+        displays = []
+        desktopDisplayID = nil
         hostSettings = nil
         settingsDeadline?.cancel()
         settingsDeadline = nil

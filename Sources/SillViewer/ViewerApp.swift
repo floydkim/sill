@@ -242,8 +242,16 @@ struct ViewerScreen: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 10) {
-                        sourceCard(.desktop, title: "Desktop", subtitle: "Host-selected monitor")
-                            .id(StreamSource.desktop)
+                        if client.displays.isEmpty {
+                            sourceCard(.desktop, title: "Desktop", subtitle: "Host-selected monitor")
+                                .id(StreamSource.desktop)
+                        } else {
+                            ForEach(client.displays) { display in
+                                sourceCard(.desktop, title: display.name,
+                                           subtitle: "\(display.isMain ? "Main · " : "")\(display.width) × \(display.height)", displayID: display.id)
+                                    .id("display-\(display.id)")
+                            }
+                        }
                         ForEach(client.windows) { window in
                             sourceCard(.window(window.id), title: window.appName,
                                        subtitle: window.title, image: client.thumbnails[window.id])
@@ -253,18 +261,29 @@ struct ViewerScreen: View {
                 }
                 .frame(height: 145)
                 .onChange(of: client.source) { _, source in
-                    withAnimation { proxy.scrollTo(source, anchor: .center) }
+                    withAnimation {
+                        if source == .desktop, let id = client.desktopDisplayID {
+                            proxy.scrollTo("display-\(id)", anchor: .center)
+                        } else {
+                            proxy.scrollTo(source, anchor: .center)
+                        }
+                    }
+                }
+                .onChange(of: client.desktopDisplayID) { _, id in
+                    if client.source == .desktop, let id {
+                        withAnimation { proxy.scrollTo("display-\(id)", anchor: .center) }
+                    }
                 }
             }
         }.padding(.horizontal, 12).padding(.vertical, 8)
     }
 
     private func sourceCard(_ source: StreamSource, title: String, subtitle: String,
-                            image: NSImage? = nil) -> some View {
-        let selected = client.source == source
+                            image: NSImage? = nil, displayID: UInt32? = nil) -> some View {
+        let selected = client.source == source && (displayID == nil || client.desktopDisplayID == displayID)
         return Button {
             surface.releaseInput()
-            client.select(source)
+            if let displayID { client.selectDisplay(displayID) } else { client.select(source) }
         } label: {
             VStack(alignment: .leading, spacing: 5) {
                 ZStack {
@@ -294,7 +313,7 @@ struct ViewerScreen: View {
             .contentShape(RoundedRectangle(cornerRadius: 9))
         }
         .buttonStyle(.plain)
-        .help(source == .desktop
+        .help(source == .desktop && displayID == nil
               ? "This host offers one Desktop stream, with no monitor selector. App cards can show individual windows."
               : (subtitle.isEmpty ? title : "\(title) — \(subtitle)"))
         .accessibilityLabel(subtitle.isEmpty ? title : "\(title) — \(subtitle)")

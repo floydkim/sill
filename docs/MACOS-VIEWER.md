@@ -276,3 +276,57 @@ followed both values. Only its Desktop test pattern streamed: no real window
 was selected or moved. The remote test host was not discovered, so actual
 remote window relocation/fallback remains unverified. Temporary pairing removed
 and test host stopped; no new test code was added.
+
+## Per-monitor desktop selection (2026-10-30)
+
+The custom host now advertises WindowList.displays (ID, name, logical dimensions,
+main-display flag) and desktopDisplayID. The viewer renders a card for each
+advertised monitor before its app-window cards. Selecting one sends kind 45,
+selectDisplay, with the JSON UInt32 ID. The host validates it against its current
+capture catalog and restarts the existing Desktop pipeline on that display.
+The display shows its current macOS Space; this is independent of the Virtual
+Display setting used to stage an app window.
+
+Compatibility: StreamSource remains none/window/desktop and protocol 1 is
+unchanged. Older clients ignore the optional catalog fields and retain their
+Desktop control. New viewers do not send kind 45 to older hosts, which retain a
+single Desktop card. Both custom host and viewer are needed for monitor cards.
+The chosen display lasts for this host process, survives app-window selections,
+and is reused by the viewer's picture retry / return-to-Desktop path.
+
+The catalog excludes Sill's staging displays, publishes monitor topology/name/
+size changes even when window information is unchanged, and falls back to an
+available desktop when the selected display disappears. Input and pointer
+geometry stay pinned to the display used to build the current capture rather
+than an upcoming catalog selection. An explicit monitor pick arriving during a
+capture restart is retained. Unknown IDs leave capture unchanged and return the
+current catalog. Desktop capture keeps the existing exclusions for Sill's own
+windows and pairing UI.
+
+Validation in this session:
+- SillHost, bundled Sill.app and bundled Sill Viewer.app release builds passed;
+  both app signatures verified.
+- A scratch protocol check passed for a two-monitor catalog, selection ID round
+  trips, the new header kind, decoding a legacy catalog and ignoring new fields
+  with a legacy catalog decoder. This is a protocol check, not monitor capture.
+- Existing encrypted synthetic integration passed pairing, HEVC rendering and
+  pinned reconnect with SILL_TEST_NO_SCREEN=1 (no real capture, input or window
+  movement). No permanent test code was added.
+
+Hardware validation remains outstanding: two monitors with different resolutions
+and backing scales; monitors to the left/above the main display (negative global
+coordinates); source changes during restarts; input at each monitor's corners;
+returning from a staged app; disconnect/reconnect of the selected display. Spaces
+shortcuts keep the host's existing global gesture behavior. The remote Mac was
+not accessed or modified in this session.
+
+On the remote Mac after the change is committed/pushed, run git pull --ff-only
+in ~/projects/sill and Scripts/make-app.sh --install --open. Rebuild the viewer
+from the same fork. Installing this development host over the official app may
+require regranting screen recording/accessibility and pairing again, as described
+in the repository's build instructions.
+
+Additional existing checks passed: viewer unit scenarios (4), CatalogLook cases
+(64), and the window-restore rule/model checks (41,936 checks across fixed cases
+and 5,000 model sessions). These guard existing behavior; they do not replace
+actual monitor-selection and hotplug validation.

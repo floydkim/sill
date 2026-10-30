@@ -190,6 +190,8 @@ package final class StreamCoordinator {
     /// Desktop request can land then (StreamClient's window list handling) and must not override
     /// the user's pick.
     private var pickArrivedWhileSwitching: StreamSource?
+    private var desktopCaptureID: UInt32?
+    private var desktopCaptureRect: CGRect?
     /// The client's last stream panel size and text scale. One stream, so with several clients
     /// the last one to report wins. Only ever one a host takes (ViewportBounds); a refused one
     /// leaves it as it was.
@@ -573,6 +575,7 @@ package final class StreamCoordinator {
         server.onMessage = { [weak self] message, connection in
             Task { @MainActor in await self?.handle(message, from: connection) }
         }
+        catalog.onDisplaysChanged = { [weak self] in self?.broadcastList() }
         catalog.onWindowsChanged = { [weak self] infos in
             Task { @MainActor in await self?.windowsChanged(infos) }
         }
@@ -586,7 +589,16 @@ package final class StreamCoordinator {
         }
         capture.onStopped = { [weak self] error in
             print("Capture stopped: \(error.localizedDescription)")
-            Task { @MainActor in await self?.select(.none) }
+            Task { @MainActor in
+                guard let self else { return }
+                if self.active == .desktop, let id = self.desktopCaptureID,
+                   !WindowCatalog.activeDisplayIDs().contains(id) {
+                    await self.catalog.refreshWindows()
+                    await self.handlePick(.desktop)
+                } else {
+                    await self.select(.none)
+                }
+            }
         }
         // Status for the menu bar app. The server's callbacks hop here from its network queue; the
         // stats tick runs on the main queue, which under the CLI's dispatchMain is drained by a
@@ -1062,6 +1074,16 @@ package final class StreamCoordinator {
         // (a pick never is: the device asks for the Desktop by itself), issue #134.
         deviceActive(.message(message.kind, input), connection)
         switch message.kind {
+        case .selectDisplay:
+            guard let id = Wire.decode(UInt32.self, from: message.payload), catalog.chooseDisplay(id) else {
+                server.send(listMessage(), to: connection)
+                return
+            }
+            if switching {
+                pickArrivedWhileSwitching = .desktop
+            } else {
+                await select(.desktop)
+            }
         case .selectSource:
             guard let source = Wire.decode(StreamSource.self, from: message.payload) else { return }
             // A window picked comes forward on the Mac, which closes a view a gesture opened; the
@@ -1311,7 +1333,7 @@ package final class StreamCoordinator {
             // The test pattern with the TEST ONLY scripted pointer: its own space, where a test
             // client's input moves that pointer (a synthetic host posts nothing).
             if synthetic, pointer.hasTestPointer { return Self.testPatternRect }
-            return catalog.display?.frame
+            return desktopCaptureRect
         case .window(let id):
             // On the virtual display the video is the captured crop, not the whole window: an app
             // that took a larger size than asked overhangs the display and the overhang is not shown.
@@ -1354,7 +1376,7 @@ package final class StreamCoordinator {
             return nil
         case .desktop:
             if synthetic { return pointer.hasTestPointer ? .rect(Self.testPatternRect) : nil }
-            return catalog.display.map { .rect($0.frame) }
+            return desktopCaptureRect.map { .rect($0) }
         case .window(let id):
             guard !synthetic else { return nil }
             if virtualDisplay, stage.isStaged, let onScreen = stage.captureRectOnScreen { return .rect(onScreen) }
@@ -1495,7 +1517,7 @@ package final class StreamCoordinator {
                 }
             }
             if catalog.clientCount == 0 { pick = nil }
-            if let pick, pick != active {
+            if let pick, pick != active || (pick == .desktop && desktopCaptureID != catalog.display?.displayID) {
                 // The pick's own select fits the latest viewport. Run after it has started, the
                 // viewport tail would resize the old window, which `active` still names mid-switch.
                 viewportArrivedWhileSwitching = false
@@ -1519,6 +1541,8 @@ package final class StreamCoordinator {
         await syntheticCapture.stop()
         capture.onFrame = nil; syntheticCapture.onFrame = nil   // both queues drained: let the old encoder go
         rectCache = nil
+        desktopCaptureID = nil
+        desktopCaptureRect = nil
         // Input held for the old source must not replay into the new one, but what acts on the whole
         // Mac still goes, in order: a gesture's chord held behind it, and the up of a key or a button
         // the Mac has down (DroppedInput: a modifier left down makes the next click a ⌘-click, a
@@ -1781,6 +1805,8 @@ package final class StreamCoordinator {
             guard !shuttingDown else { return nil }
         }
         guard let d = catalog.display else { return nil }
+        desktopCaptureID = d.displayID
+        desktopCaptureRect = d.frame
         let own = catalog.ownApplication ?? resolved      // the newest look's, read with its display
         let displayFilter = own.map { SCContentFilter(display: d, excludingApplications: [$0], exceptingWindows: []) }
             ?? SCContentFilter(display: d, excludingWindows: [])
@@ -2248,6 +2274,13 @@ package final class StreamCoordinator {
     /// before a fit landed can still give at its old value; a resize is `windowsChanged`'s.
     private func catalogPolled() {
         menusPolled()
+        if !synthetic, !switching, !shuttingDown, active == .desktop,
+           desktopCaptureID != catalog.display?.displayID || desktopCaptureRect != catalog.display?.frame {
+            Task { @MainActor in
+                guard !self.switching, !self.shuttingDown, self.active == .desktop else { return }
+                await self.select(.desktop)
+            }
+        }
         guard !switching, !shuttingDown, case .window(let id) = active, !(virtualDisplay && stage.isStaged),
               let w = catalog.window(id: id), capturePixelScale(of: w) != streamPixelScale else { return }
         Task { @MainActor in
@@ -2955,6 +2988,8 @@ package final class StreamCoordinator {
         // This host repeats a device's held key (KeyRepeat), so a device sends it a hardware keyboard's
         // characters as keys.
         list.keyRepeat = KeyRepeat.generation
+        list.displays = catalog.displayInfos
+        list.desktopDisplayID = catalog.display?.displayID
         return StreamMessage(kind: .windowList, timestamp: Date().timeIntervalSince1970, isKeyframe: false,
                              payload: Wire.encode(list))
     }
