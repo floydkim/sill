@@ -111,7 +111,9 @@ shares the host's one active source, as in upstream Sill.
   pairing to a real synthetic host and HEVC test-pattern display were confirmed.
 - Startup Keychain blocking was reproduced using a process sample and fixed by
   separating the app/CLI credential namespaces and using stable development signing.
-- Two physical Macs, perceived latency, audio and IME behavior remain unverified.
-  This Mac's host is visible to DNS-SD discovery tools; same-Mac discovery from
-  the app needs more investigation. Manual address entry is available.
+- The user confirmed a successful connection between two Macs. Perceived latency,
+  audio and IME behavior still need independent verification.
+- Native UI verification confirmed that the current Mac disappeared while the
+  other available Mac remained listed. The current Mac is intentionally excluded from Nearby Macs by comparing the
+  service's resolved IPv4/IPv6 addresses with local network interfaces.
 - The follow-up prioritized building and operating the app; no new tests were added.

@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import CryptoKit
+import Darwin
 import Network
 import OSLog
 import StreamProtocol
@@ -108,9 +109,40 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     func netService(_ sender: NetService, didUpdateTXTRecord data: Data) { updateNearby() }
 
     private func updateNearby() {
+        func numericHost(_ address: UnsafePointer<sockaddr>) -> String? {
+            guard address.pointee.sa_family == AF_INET || address.pointee.sa_family == AF_INET6 else { return nil }
+            var buffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            guard getnameinfo(address, socklen_t(address.pointee.sa_len), &buffer, socklen_t(buffer.count),
+                              nil, 0, NI_NUMERICHOST) == 0 else { return nil }
+            // A link-local address may carry an interface scope; compare the IP itself.
+            return String(cString: buffer).components(separatedBy: "%")[0]
+        }
+
+        var localAddresses = Set<String>()
+        var interfaces: UnsafeMutablePointer<ifaddrs>?
+        if getifaddrs(&interfaces) == 0, let first = interfaces {
+            defer { freeifaddrs(first) }
+            var entry: UnsafeMutablePointer<ifaddrs>? = first
+            while let current = entry {
+                if let address = current.pointee.ifa_addr, let host = numericHost(address) {
+                    localAddresses.insert(host)
+                }
+                entry = current.pointee.ifa_next
+            }
+        }
+
         nearby = services.compactMap { service in
             guard let host = service.hostName, (1...65535).contains(service.port),
                   let port = NWEndpoint.Port(rawValue: UInt16(service.port)) else { return nil }
+            let isThisMac = (service.addresses ?? []).contains { data in
+                data.withUnsafeBytes { bytes in
+                    guard bytes.count >= MemoryLayout<sockaddr>.size, let base = bytes.baseAddress else { return false }
+                    let address = base.assumingMemoryBound(to: sockaddr.self)
+                    guard Int(address.pointee.sa_len) <= bytes.count, let host = numericHost(address) else { return false }
+                    return localAddresses.contains(host)
+                }
+            }
+            guard !isThisMac else { return nil }
             let record = service.txtRecordData().map(NetService.dictionary(fromTXTRecord:)) ?? [:]
             let txt = record.mapValues { String(data: $0, encoding: .utf8) ?? "1" }
             return NearbyHost(name: service.name, endpoint: .hostPort(host: NWEndpoint.Host(host), port: port),
