@@ -38,6 +38,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     var onConnected: (() -> Void)?
 
     private let logger = Logger(subsystem: "local.sill.viewer", category: "connection")
+    private var pictureTimedOut = false
     private var pictureDeadline: DispatchWorkItem?
     private var browser: NetServiceBrowser?
     private var services: [NetService] = []
@@ -323,7 +324,12 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         case .windowList:
             guard let list = Wire.decode(WindowList.self, from: data) else { fail("Invalid window list."); return }
             windows = list.windows
-            source = list.active
+            if list.active != .none {
+                source = list.active
+            } else if pictureReady {
+                onClear?()
+                awaitPicture()
+            }
             status = "Connected to \(list.macName)"
             if !receivedCatalog {
                 receivedCatalog = true
@@ -384,8 +390,12 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         pictureDeadline?.cancel()
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.connected, !self.pictureReady else { return }
-            self.error = "Connected, but no picture arrived. Check Screen Recording permission for Sill on the host Mac, keep it awake, then choose Desktop or a window again."
-            self.requestKeyframe()
+            self.pictureTimedOut = true
+            self.error = "Connected, but the picture is unavailable. Retrying the selected screen every 10 seconds. If the host is locked, unlock it to resume."
+            var retry = self.source == .none ? StreamSource.desktop : self.source
+            if case .window(let id) = retry, !self.windows.contains(where: { $0.id == id }) { retry = .desktop }
+            self.logger.notice("Retrying screen selection for the released Sill host")
+            self.select(retry)
         }
         pictureDeadline = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: timeout)
@@ -395,11 +405,19 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         guard !pictureReady else { return }
         pictureReady = true
         pictureDeadline?.cancel()
+        if pictureTimedOut { error = nil; pictureTimedOut = false }
         logger.info("Picture received: \(Int(size.width))×\(Int(size.height))")
     }
 
     func input(_ value: InputEvent) { if connected { send(.input, Wire.encode(value)) } }
-    func requestKeyframe() { if connected { send(.keyframeRequest, Data()) } }
+    func requestKeyframe() {
+        guard connected else { return }
+        // v0.5.1 ignores kind 44; recover through selectSource after the picture timeout.
+        if pictureReady {
+            onClear?()
+            awaitPicture()
+        }
+    }
 
     private func send(_ kind: StreamMessageKind, _ data: Data) {
         guard let c = connection else { return }
@@ -421,6 +439,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         closeConnection(graceful: connected)
         connected = false
         pictureReady = false
+        pictureTimedOut = false
         busy = false
         pairing = false
         windows = []
