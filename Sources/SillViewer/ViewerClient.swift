@@ -26,6 +26,11 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     @Published var busy = false
     @Published var windows: [WindowInfo] = []
     @Published var source: StreamSource = .none
+    @Published var thumbnails: [UInt32: NSImage] = [:]
+    @Published var supportsSpaces = false
+    @Published var hostSettings: HostSettingsState?
+    @Published var settingsPending = false
+    @Published var settingsNotice: String?
     @Published var pairing = false
     @Published var pairingName = "Mac"
     @Published var error: String? {
@@ -38,6 +43,10 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     var onConnected: (() -> Void)?
 
     private let logger = Logger(subsystem: "local.sill.viewer", category: "connection")
+    private var settingsToken = 0
+    private var pendingSettings: HostSettingsChange?
+    private var settingsDeadline: DispatchWorkItem?
+    private var displayFPS = 60
     private var pictureTimedOut = false
     private var pictureDeadline: DispatchWorkItem?
     private var browser: NetServiceBrowser?
@@ -324,6 +333,9 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         case .windowList:
             guard let list = Wire.decode(WindowList.self, from: data) else { fail("Invalid window list."); return }
             windows = list.windows
+            let windowIDs = Set(windows.map(\.id))
+            thumbnails = thumbnails.filter { windowIDs.contains($0.key) }
+            supportsSpaces = (list.gestures ?? 0) >= TrackpadGesture.generation
             if list.active != .none {
                 source = list.active
             } else if pictureReady {
@@ -346,6 +358,17 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
                 if list.active == .none { select(.desktop) }
                 onConnected?()
             }
+        case .hostSettings:
+            guard let state = Wire.decode(HostSettingsState.self, from: data) else { return }
+            hostSettings = state
+            if let change = pendingSettings, state.answering == change.token {
+                settingsDeadline?.cancel()
+                pendingSettings = nil
+                settingsPending = false
+                let accepted = change.applied(to: state.settings) == state.settings
+                settingsNotice = accepted ? "Confirmed by host." : "The host did not accept this setting. Its current value is shown."
+                logger.notice("Quality reply: accepted=\(accepted), bitrate=\(state.settings.bitrate), scale=\(state.settings.captureScale), fps=\(state.settings.maxFPS)")
+            }
         case .parameterSets:
             guard let sets = ParameterSets(encoded: data), sets.sets.count == 3,
                   [1, 2, 4].contains(sets.nalUnitHeaderLength), sets.sets.allSatisfy({ !$0.isEmpty }) else {
@@ -353,6 +376,12 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
             }
             onParameters?(sets)
         case .frame: onFrame?(data, header.isKeyframe)
+        case .thumbnail:
+            if let thumbnail = ImageBlob.decodeThumbnail(data),
+               windows.contains(where: { $0.id == thumbnail.windowID }),
+               let image = NSImage(data: thumbnail.jpeg) {
+                thumbnails[thumbnail.windowID] = image
+            }
         case .cursorShape:
             if let cursor = CursorShapeBlob.decode(data), cursor.size.width.isFinite, cursor.size.height.isFinite,
                cursor.size.width > 0, cursor.size.height > 0, cursor.size.width <= 512, cursor.size.height <= 512,
@@ -374,15 +403,42 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         send(.selectSource, Wire.encode(value))
     }
 
-    func viewport(_ size: CGSize) {
+    func desktopGesture(_ gesture: String) {
+        guard connected, supportsSpaces else { return }
+        // The released host queues gestures behind a pending Desktop selection.
+        if source != .desktop { select(.desktop) }
+        send(.gesture, Wire.encode(TrackpadGesture(gesture: gesture)))
+    }
+
+    func changeQuality(_ requested: HostSettingsChange) {
+        guard connected, hostSettings != nil, !settingsPending, !requested.isEmpty else { return }
+        settingsToken += 1
+        var change = requested
+        change.token = settingsToken
+        pendingSettings = change
+        settingsPending = true
+        settingsNotice = nil
+        send(.changeSettings, Wire.encode(change))
+        let timeout = DispatchWorkItem { [weak self] in
+            guard let self, self.pendingSettings?.token == change.token else { return }
+            self.pendingSettings = nil
+            self.settingsPending = false
+            self.settingsNotice = "No confirmation from the host. The last reported settings are shown."
+        }
+        settingsDeadline = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeout)
+    }
+
+    func viewport(_ size: CGSize, fps: Int = 60) {
         guard size.width > 0, size.height > 0 else { return }
-        guard size != lastViewport else { return }
+        guard size != lastViewport || fps != displayFPS else { return }
         lastViewport = size
+        displayFPS = fps
         if connected { sendViewport() }
     }
 
     private func sendViewport() {
-        send(.viewport, Wire.encode(Viewport(width: lastViewport.width, height: lastViewport.height, scale: nil, localCursor: true, fps: 60)))
+        send(.viewport, Wire.encode(Viewport(width: lastViewport.width, height: lastViewport.height, scale: nil, localCursor: true, fps: displayFPS)))
     }
 
     func awaitPicture() {
@@ -443,6 +499,14 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         busy = false
         pairing = false
         windows = []
+        thumbnails = [:]
+        supportsSpaces = false
+        hostSettings = nil
+        settingsDeadline?.cancel()
+        settingsDeadline = nil
+        pendingSettings = nil
+        settingsPending = false
+        settingsNotice = nil
         source = .none
         status = "Looking for Macs…"
     }

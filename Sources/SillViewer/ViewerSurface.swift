@@ -64,7 +64,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     override func layout() {
         super.layout()
         layoutVideo()
-        client?.viewport(bounds.size)
+        client?.viewport(bounds.size, fps: window?.screen?.maximumFramesPerSecond ?? 60)
     }
 
     override func updateTrackingAreas() {

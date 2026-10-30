@@ -182,3 +182,51 @@ verification and existing viewer tests passed (4 passed, 1 integration scenario
 skipped because its opt-in host environment was absent). No test scenarios were
 added. Entirely dark window edges are deliberately not auto-cropped; this
 compatibility correction requires macOS 14.4 or newer on the viewer.
+
+## Window cards and Spaces (2026-10-30)
+
+The dropdown is replaced by horizontally scrolling cards with the host's JPEG
+window thumbnails, app names, titles and a selected-state outline. A text/icon
+fallback appears before a thumbnail arrives. Thumbnails are kept only for current
+window IDs and cleared on disconnect.
+
+Previous Space, Mission Control and Next Space use the official host's gesture
+protocol (kind 28), enabled only when windowList.gestures advertises support.
+A window stream switches to Desktop first so the resulting overview or Space is
+visible. This navigates the host's active Space; the protocol does not provide
+all Spaces or their screenshots at once. Space arrows depend on the host's enabled
+keyboard shortcuts and the host does not acknowledge whether a gesture moved it.
+
+Validation against the unchanged remote Mac: real window thumbnail cards received;
+Orca selection via card; horizontal scroll to trailing cards in a resized narrow
+window; Mission Control displaying Desktops 3, 4 and 5; Next Space displaying a
+different desktop and updating window cards; clicking Desktop 3 in the expanded
+Mission Control thumbnails returned to the original Orca desktop. Previous Space was sent but a return
+to Desktop 3 was not visually confirmed, so that direction is not claimed as
+verified. Release build and bundle signing passed; existing viewer tests passed
+(4 passed, 1 opt-in integration test skipped). No new test scenarios were added.
+
+## Video quality controls (2026-10-30)
+
+The Video Quality toolbar popover uses the official client's shared presets:
+Low/Efficient/Balanced/High/Pro/Ultra/Extreme (4/8/15/25/40/80/150 Mbps per
+60 fps), Standard/Retina capture scale, 60/120 fps limit, and Prioritize Encoding
+Speed. Only host-reported state is shown. Each change sends kind 17 with only the
+changed field and a monotonically increasing token; controls wait for the host's
+matching kind-16 acknowledgement, with an eight-second timeout. Rejected settings
+retain the host's actual reported values. No defaults are sent on connection.
+The popover shows RunningStream dimensions/fps/bitrate separately from the target,
+plus software-encoder and home/away context when reported. The viewport now sends
+the viewer window's display frame-rate capability instead of always requesting
+60 fps. Host frame-rate limits still apply.
+
+Real-host validation: Retina → Standard changed the running desktop from
+5120×2880 to 2560×1440; selecting 60 fps changed the reported stream from 120 to
+60 fps; High changed it from 15 to 25 Mbps at 60 fps; the encoding-speed toggle
+was acknowledged in both directions. After a host-initiated disconnect, reconnect
+loaded its persisted values, then the initial preferences were restored and
+confirmed: Balanced 15 Mbps, Retina, 120 fps, encoding-speed priority off. The
+current physical display changed during that interval, so restored Retina ran
+at 3024×1964, 120 fps and 30 Mbps. The host app binary was unchanged.
+Release build, code signature verification and existing viewer tests passed
+(4 passed, 1 opt-in integration test skipped). No new test scenarios were added.

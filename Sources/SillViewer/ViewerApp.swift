@@ -7,6 +7,7 @@ struct ViewerScreen: View {
     let surface: ViewerSurface
     @State private var address = ""
     @State private var code = ""
+    @State private var showingQuality = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,12 +18,10 @@ struct ViewerScreen: View {
                 Text(client.status).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if client.busy { ProgressView().controlSize(.small) }
                 if client.connected {
-                    Picker("Show", selection: Binding(get: { client.source }, set: { client.select($0) })) {
-                        Text("Desktop").tag(StreamSource.desktop)
-                        ForEach(client.windows) { window in
-                            Text("\(window.appName) — \(window.title)").tag(StreamSource.window(window.id))
-                        }
-                    }.frame(maxWidth: 380)
+                    Button { surface.releaseInput(); showingQuality.toggle() } label: {
+                        Label("Video Quality", systemImage: "slider.horizontal.3")
+                    }
+                    .popover(isPresented: $showingQuality) { qualityPanel }
                     Button("Disconnect") { surface.releaseInput(); client.disconnect() }
                 } else if client.busy {
                     Button("Cancel") { client.disconnect() }
@@ -38,6 +37,8 @@ struct ViewerScreen: View {
                 }.padding(12).background(Color.orange.opacity(0.12))
             }
             if client.connected {
+                sourceBrowser
+                Divider()
                 SurfaceView(surface: surface)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay {
@@ -120,6 +121,156 @@ struct ViewerScreen: View {
             }.padding(24).frame(width: 430)
         }
         .onAppear { client.browse() }
+    }
+
+    private var qualityPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Video Quality").font(.title2.bold())
+            if let state = client.hostSettings {
+                let settings = state.settings
+                VStack(spacing: 12) {
+                    Picker("Quality", selection: Binding(get: { settings.bitrate }, set: {
+                        client.changeQuality(HostSettingsChange(bitrate: $0))
+                    })) {
+                        ForEach(QualityPreset.allCases) { Text($0.title).tag($0.rawValue) }
+                        if QualityPreset(rawValue: settings.bitrate) == nil {
+                            Text(QualityPreset.title(forBitrate: settings.bitrate)).tag(settings.bitrate)
+                        }
+                    }
+                    Picker("Resolution", selection: Binding(get: { settings.captureScale }, set: {
+                        client.changeQuality(HostSettingsChange(captureScale: $0))
+                    })) {
+                        Text("Retina (2×)").tag(2.0)
+                        Text("Standard (1×)").tag(1.0)
+                        if !SettingsChoices.captureScale.contains(settings.captureScale) {
+                            Text("Custom (\(settings.captureScale.formatted())×)").tag(settings.captureScale)
+                        }
+                    }
+                    Picker("Frame Rate Limit", selection: Binding(get: { settings.maxFPS }, set: {
+                        client.changeQuality(HostSettingsChange(maxFPS: $0))
+                    })) {
+                        ForEach(SettingsChoices.maxFPS, id: \.self) { Text("\($0) fps").tag($0) }
+                        if !SettingsChoices.maxFPS.contains(settings.maxFPS) {
+                            Text("Custom — \(settings.maxFPS) fps").tag(settings.maxFPS)
+                        }
+                    }
+                    Toggle("Prioritize Encoding Speed", isOn: Binding(get: { settings.prioritizeSpeed }, set: {
+                        client.changeQuality(HostSettingsChange(prioritizeSpeed: $0))
+                    }))
+                }.disabled(client.settingsPending)
+                if client.settingsPending {
+                    HStack { ProgressView().controlSize(.small); Text("Waiting for host confirmation…") }
+                        .font(.caption)
+                } else if let notice = client.settingsNotice {
+                    Text(notice).font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                if let stream = state.stream {
+                    Text("Streaming: \(stream.width) × \(stream.height) · \(stream.fps) fps · \(stream.mbps) Mbps")
+                        .font(.caption.monospacedDigit())
+                } else {
+                    Text("No active stream.").font(.caption).foregroundStyle(.secondary)
+                }
+                if state.softwareEncoder {
+                    Text("The host is using software encoding; resolution and frame rate may be limited.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if let away = state.away {
+                    Text(away.thisConnectionAway ? "Editing Away quality (VPN / remote access)." : "Editing Home quality (local network).")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Text("Quality is per 60 fps; 120 fps uses twice the bitrate. The actual rate also depends on this Mac’s display and the host.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(state.persistent ? "Changes are saved on the host and may affect other connected viewers." : "Changes apply to the host’s current session.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Waiting for the host’s video settings. Controls appear when the host reports support.")
+                    .foregroundStyle(.secondary)
+            }
+        }.padding(20).frame(width: 380)
+    }
+
+    private var sourceBrowser: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Windows").font(.subheadline.bold())
+                Spacer()
+                Button {
+                    surface.releaseInput()
+                    client.desktopGesture(TrackpadGesture.swipeRight)
+                } label: { Label("Previous Space", systemImage: "chevron.left") }
+                Button {
+                    surface.releaseInput()
+                    client.desktopGesture(TrackpadGesture.swipeUp)
+                } label: { Label("Mission Control", systemImage: "rectangle.3.group") }
+                Button {
+                    surface.releaseInput()
+                    client.desktopGesture(TrackpadGesture.swipeLeft)
+                } label: { Label("Next Space", systemImage: "chevron.right") }
+            }
+            .controlSize(.small)
+            .disabled(!client.supportsSpaces)
+            .help(client.supportsSpaces
+                  ? "Navigate Spaces on the host Mac. Window cards follow the current Space."
+                  : "This host does not advertise Spaces navigation support.")
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 10) {
+                        sourceCard(.desktop, title: "Desktop", subtitle: "Current Space")
+                            .id(StreamSource.desktop)
+                        ForEach(client.windows) { window in
+                            sourceCard(.window(window.id), title: window.appName,
+                                       subtitle: window.title, image: client.thumbnails[window.id])
+                                .id(StreamSource.window(window.id))
+                        }
+                    }.padding(3)
+                }
+                .frame(height: 145)
+                .onChange(of: client.source) { _, source in
+                    withAnimation { proxy.scrollTo(source, anchor: .center) }
+                }
+            }
+        }.padding(.horizontal, 12).padding(.vertical, 8)
+    }
+
+    private func sourceCard(_ source: StreamSource, title: String, subtitle: String,
+                            image: NSImage? = nil) -> some View {
+        let selected = client.source == source
+        return Button {
+            surface.releaseInput()
+            client.select(source)
+        } label: {
+            VStack(alignment: .leading, spacing: 5) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 5).fill(Color.black)
+                    if let image {
+                        Image(nsImage: image).resizable().scaledToFit()
+                    } else {
+                        Image(systemName: source == .desktop ? "desktopcomputer" : "macwindow")
+                            .font(.system(size: 26)).foregroundStyle(.gray)
+                    }
+                }
+                .frame(height: 78)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                HStack(spacing: 4) {
+                    Text(title).font(.caption.bold()).lineLimit(1)
+                    Spacer(minLength: 0)
+                    if selected { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
+                }
+                Text(subtitle.isEmpty ? title : subtitle)
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .padding(8).frame(width: 180)
+            .background(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04),
+                        in: RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9)
+                .stroke(selected ? Color.accentColor : Color.primary.opacity(0.12), lineWidth: selected ? 2 : 1))
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+        }
+        .buttonStyle(.plain)
+        .help(subtitle.isEmpty ? title : "\(title) — \(subtitle)")
+        .accessibilityLabel(subtitle.isEmpty ? title : "\(title) — \(subtitle)")
+        .accessibilityValue(selected ? "Selected" : "")
     }
 
     private func connectAddress() { if !address.isEmpty && !client.busy { client.connectAddress(address) } }
