@@ -230,3 +230,49 @@ current physical display changed during that interval, so restored Retina ran
 at 3024×1964, 120 fps and 30 Mbps. The host app binary was unchanged.
 Release build, code signature verification and existing viewer tests passed
 (4 passed, 1 opt-in integration test skipped). No new test scenarios were added.
+
+## Collapsible screen list and physical monitors (2026-10-30)
+
+Hide Screens / Show Screens in the toolbar collapses or restores the entire
+window-card and Spaces-control strip. The existing video surface uses the freed
+space without changing source or disconnecting. The choice is saved locally in
+viewer.showScreenList. Video Quality and Disconnect remain available.
+
+The official v0.5.1 protocol has only none, window(windowID), and desktop sources.
+WindowList carries no display catalog and selectSource accepts no display ID.
+WindowCatalog chooses one display; StreamCoordinator captures that display for
+Desktop. Spaces gestures switch virtual desktops, not physical monitors. A
+viewer-only change cannot select each of two attached monitors' full desktops.
+The Desktop card now says Host-selected monitor and explains the restriction.
+Individual host-provided window cards remain selectable. Physical display
+selection requires a host/protocol extension; the user's requirement to retain
+the official host has been respected.
+
+Validation: release build, code signing, and existing viewer tests passed (4
+passed, 1 opt-in integration test skipped). The remote test host was absent
+from discovery and two connections timed out. A loopback-only synthetic host
+built from v0.5.1 verified hide/show, continued video rendering, expansion into
+the freed space, and the saved local preference. Its temporary pairing was
+removed and the test host stopped. No new test code or host changes were made.
+
+## Virtual Display setting (2026-10-30)
+
+The renamed Video Settings popover includes the official client's Virtual Display
+switch. It sends HostSettingsChange.virtualDisplay through the existing token /
+acknowledgement path. On moves the selected app window to the host's invisible
+virtual display; off uses its original display. This controls app-window staging,
+not the enumeration or selection of physical monitors or macOS Spaces.
+
+Match the original client's availability rule: when unavailable and off, on is
+disabled; when already on, off remains available. Show the host's failure note,
+and show RunningStream.onVirtualDisplay separately for a window source so a
+requested setting is not mistaken for successful staging. Host preferences are
+never overwritten on connection.
+
+Validation: release build, code signing and existing viewer tests passed (4
+passed, 1 opt-in integration test skipped). A loopback-only synthetic v0.5.1 host
+with the AppKit virtual-display capability acknowledged off and on and the UI
+followed both values. Only its Desktop test pattern streamed: no real window
+was selected or moved. The remote test host was not discovered, so actual
+remote window relocation/fallback remains unverified. Temporary pairing removed
+and test host stopped; no new test code was added.

@@ -410,7 +410,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         send(.gesture, Wire.encode(TrackpadGesture(gesture: gesture)))
     }
 
-    func changeQuality(_ requested: HostSettingsChange) {
+    func changeSettings(_ requested: HostSettingsChange) {
         guard connected, hostSettings != nil, !settingsPending, !requested.isEmpty else { return }
         settingsToken += 1
         var change = requested

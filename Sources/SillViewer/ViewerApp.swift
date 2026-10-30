@@ -8,6 +8,7 @@ struct ViewerScreen: View {
     @State private var address = ""
     @State private var code = ""
     @State private var showingQuality = false
+    @AppStorage("viewer.showScreenList") private var showingScreenList = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,8 +19,15 @@ struct ViewerScreen: View {
                 Text(client.status).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if client.busy { ProgressView().controlSize(.small) }
                 if client.connected {
+                    Button {
+                        surface.releaseInput()
+                        showingScreenList.toggle()
+                    } label: {
+                        Label(showingScreenList ? "Hide Screens" : "Show Screens", systemImage: "rectangle.topthird.inset.filled")
+                    }
+                    .help(showingScreenList ? "Hide the screen list to enlarge the remote picture." : "Show the screen list and Spaces controls.")
                     Button { surface.releaseInput(); showingQuality.toggle() } label: {
-                        Label("Video Quality", systemImage: "slider.horizontal.3")
+                        Label("Video Settings", systemImage: "slider.horizontal.3")
                     }
                     .popover(isPresented: $showingQuality) { qualityPanel }
                     Button("Disconnect") { surface.releaseInput(); client.disconnect() }
@@ -37,8 +45,10 @@ struct ViewerScreen: View {
                 }.padding(12).background(Color.orange.opacity(0.12))
             }
             if client.connected {
-                sourceBrowser
-                Divider()
+                if showingScreenList {
+                    sourceBrowser
+                    Divider()
+                }
                 SurfaceView(surface: surface)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay {
@@ -125,12 +135,12 @@ struct ViewerScreen: View {
 
     private var qualityPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Video Quality").font(.title2.bold())
+            Text("Video Settings").font(.title2.bold())
             if let state = client.hostSettings {
                 let settings = state.settings
                 VStack(spacing: 12) {
                     Picker("Quality", selection: Binding(get: { settings.bitrate }, set: {
-                        client.changeQuality(HostSettingsChange(bitrate: $0))
+                        client.changeSettings(HostSettingsChange(bitrate: $0))
                     })) {
                         ForEach(QualityPreset.allCases) { Text($0.title).tag($0.rawValue) }
                         if QualityPreset(rawValue: settings.bitrate) == nil {
@@ -138,7 +148,7 @@ struct ViewerScreen: View {
                         }
                     }
                     Picker("Resolution", selection: Binding(get: { settings.captureScale }, set: {
-                        client.changeQuality(HostSettingsChange(captureScale: $0))
+                        client.changeSettings(HostSettingsChange(captureScale: $0))
                     })) {
                         Text("Retina (2×)").tag(2.0)
                         Text("Standard (1×)").tag(1.0)
@@ -147,7 +157,7 @@ struct ViewerScreen: View {
                         }
                     }
                     Picker("Frame Rate Limit", selection: Binding(get: { settings.maxFPS }, set: {
-                        client.changeQuality(HostSettingsChange(maxFPS: $0))
+                        client.changeSettings(HostSettingsChange(maxFPS: $0))
                     })) {
                         ForEach(SettingsChoices.maxFPS, id: \.self) { Text("\($0) fps").tag($0) }
                         if !SettingsChoices.maxFPS.contains(settings.maxFPS) {
@@ -155,9 +165,21 @@ struct ViewerScreen: View {
                         }
                     }
                     Toggle("Prioritize Encoding Speed", isOn: Binding(get: { settings.prioritizeSpeed }, set: {
-                        client.changeQuality(HostSettingsChange(prioritizeSpeed: $0))
+                        client.changeSettings(HostSettingsChange(prioritizeSpeed: $0))
                     }))
+                    Toggle("Virtual Display", isOn: Binding(get: { settings.virtualDisplay }, set: {
+                        client.changeSettings(HostSettingsChange(virtualDisplay: $0))
+                    }))
+                    .disabled(!state.virtualDisplayAvailable && !settings.virtualDisplay)
+                    .help("Move the selected app window onto the host’s invisible display while streaming.")
                 }.disabled(client.settingsPending)
+                Text("Virtual Display on: move the selected app window to an invisible display. Off: show it on its original display. Changing this restarts the stream briefly.")
+                    .font(.caption).foregroundStyle(.secondary)
+                if let note = state.virtualDisplayNote {
+                    Text(note).font(.caption).foregroundStyle(.secondary)
+                } else if !state.virtualDisplayAvailable && !settings.virtualDisplay {
+                    Text("Virtual Display is unavailable on this host.").font(.caption).foregroundStyle(.secondary)
+                }
                 if client.settingsPending {
                     HStack { ProgressView().controlSize(.small); Text("Waiting for host confirmation…") }
                         .font(.caption)
@@ -168,6 +190,10 @@ struct ViewerScreen: View {
                 if let stream = state.stream {
                     Text("Streaming: \(stream.width) × \(stream.height) · \(stream.fps) fps · \(stream.mbps) Mbps")
                         .font(.caption.monospacedDigit())
+                    if case .window = client.source {
+                        Text(stream.onVirtualDisplay ? "Window is streaming from the virtual display." : "Window is streaming from its original display.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 } else {
                     Text("No active stream.").font(.caption).foregroundStyle(.secondary)
                 }
@@ -216,7 +242,7 @@ struct ViewerScreen: View {
             ScrollViewReader { proxy in
                 ScrollView(.horizontal) {
                     LazyHStack(spacing: 10) {
-                        sourceCard(.desktop, title: "Desktop", subtitle: "Current Space")
+                        sourceCard(.desktop, title: "Desktop", subtitle: "Host-selected monitor")
                             .id(StreamSource.desktop)
                         ForEach(client.windows) { window in
                             sourceCard(.window(window.id), title: window.appName,
@@ -268,7 +294,9 @@ struct ViewerScreen: View {
             .contentShape(RoundedRectangle(cornerRadius: 9))
         }
         .buttonStyle(.plain)
-        .help(subtitle.isEmpty ? title : "\(title) — \(subtitle)")
+        .help(source == .desktop
+              ? "This host offers one Desktop stream, with no monitor selector. App cards can show individual windows."
+              : (subtitle.isEmpty ? title : "\(title) — \(subtitle)"))
         .accessibilityLabel(subtitle.isEmpty ? title : "\(title) — \(subtitle)")
         .accessibilityValue(selected ? "Selected" : "")
     }
