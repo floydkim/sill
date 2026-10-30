@@ -142,3 +142,17 @@ HEVC test-pattern display against a CLI host built from the exact v0.5.1 tag.
 The temporary pairing was removed; the user's existing remote pairing remains.
 Actual lock/unlock recovery on the remote Mac still needs confirmation. No new
 test code was added.
+
+## Resize correction (2026-10-30)
+
+The AV display layer is now the NSView's backing layer. AppKit updates its
+geometry and backing scale together with the view, instead of relying on
+manual sublayer sizing from layout(). Video still uses aspect fit, so input
+coordinates and the displayed video rectangle stay aligned.
+
+Validated by displaying the official v0.5.1 host's synthetic stream in the
+installed app, zooming the window to the display size and restoring it. The
+picture followed both sizes rather than remaining in the top-left corner.
+The specific remote Chrome-window case still needs confirmation when the
+remote picture is available. No new test scenarios were added; the existing
+rendering check was updated to locate the backing display layer.

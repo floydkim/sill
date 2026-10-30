@@ -22,12 +22,14 @@ final class ViewerSurface: NSView, NSTextInputClient {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
+    // AppKit keeps the backing layer in sync with view size and Retina scale changes.
+    override func makeBackingLayer() -> CALayer { videoLayer }
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
         videoLayer.videoGravity = .resizeAspect
-        layer?.addSublayer(videoLayer)
         setAccessibilityLabel("Remote Mac screen")
         setAccessibilityRole(.group)
         NotificationCenter.default.addObserver(self, selector: #selector(releaseInput), name: NSWindow.didResignKeyNotification, object: nil)
@@ -51,10 +53,6 @@ final class ViewerSurface: NSView, NSTextInputClient {
 
     override func layout() {
         super.layout()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        videoLayer.frame = bounds
-        CATransaction.commit()
         client?.viewport(bounds.size)
     }
 
