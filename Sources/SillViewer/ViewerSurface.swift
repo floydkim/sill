@@ -1,13 +1,24 @@
 import AppKit
 import AVFoundation
+import CoreImage
+import OSLog
 import StreamProtocol
 
 final class ViewerSurface: NSView, NSTextInputClient {
+    private let videoLog = Logger(subsystem: "local.sill.viewer", category: "video")
     private let videoLayer = AVSampleBufferDisplayLayer()
     private var format: CMVideoFormatDescription?
     private var lastParameters: Data?
     private var waitingForKeyframe = true
     private var videoSize = CGSize.zero
+    private var visibleFraction = CGSize(width: 1, height: 1)
+    private var paddingChecked = false
+    private var paddingCheckPending = false
+    private var videoGeneration = 0
+    private lazy var imageContext = CIContext()
+    private var displayedSize: CGSize {
+        CGSize(width: videoSize.width * visibleFraction.width, height: videoSize.height * visibleFraction.height)
+    }
     private var cursor = NSCursor.arrow
     private var marked = NSAttributedString(string: "")
     private var heldKeys = Set<UInt16>()
@@ -22,13 +33,12 @@ final class ViewerSurface: NSView, NSTextInputClient {
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
-    // AppKit keeps the backing layer in sync with view size and Retina scale changes.
-    override func makeBackingLayer() -> CALayer { videoLayer }
-
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
+        layer?.masksToBounds = true
+        layer?.addSublayer(videoLayer)
         videoLayer.videoGravity = .resizeAspect
         setAccessibilityLabel("Remote Mac screen")
         setAccessibilityRole(.group)
@@ -53,6 +63,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
 
     override func layout() {
         super.layout()
+        layoutVideo()
         client?.viewport(bounds.size)
     }
 
@@ -63,7 +74,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     }
 
     override func resetCursorRects() {
-        addCursorRect(ViewerInput.videoRect(bounds: bounds, video: videoSize), cursor: cursor)
+        addCursorRect(ViewerInput.videoRect(bounds: bounds, video: displayedSize), cursor: cursor)
     }
 
     func clear() {
@@ -72,6 +83,8 @@ final class ViewerSurface: NSView, NSTextInputClient {
         lastParameters = nil
         waitingForKeyframe = true
         videoSize = .zero
+        resetPadding()
+        layoutVideo()
         marked = NSAttributedString(string: "")
         inputContext?.discardMarkedText()
         videoLayer.flushAndRemoveImage()
@@ -100,6 +113,75 @@ final class ViewerSurface: NSView, NSTextInputClient {
         waitingForKeyframe = true
         videoLayer.flushAndRemoveImage()
         window?.invalidateCursorRects(for: self)
+        resetPadding()
+        layoutVideo()
+    }
+
+    private func resetPadding() {
+        videoGeneration += 1
+        visibleFraction = CGSize(width: 1, height: 1)
+        paddingChecked = false
+        paddingCheckPending = false
+    }
+
+    private func layoutVideo() {
+        let fitted = ViewerInput.videoRect(bounds: bounds, video: displayedSize)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        videoLayer.frame = CGRect(x: fitted.minX, y: fitted.minY,
+                                  width: fitted.width / visibleFraction.width,
+                                  height: fitted.height / visibleFraction.height)
+        CATransaction.commit()
+    }
+
+    private func checkWindowPadding() {
+        guard #available(macOS 14.4, *), !paddingChecked, !paddingCheckPending,
+              case .window(let id) = client?.source,
+              let info = client?.windows.first(where: { $0.id == id }) else { return }
+        paddingCheckPending = true
+        let generation = videoGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.videoGeneration == generation else { return }
+            self.paddingCheckPending = false
+            guard let pixels = self.videoLayer.sampleBufferRenderer.displayedPixelBuffer() else { return }
+            self.paddingChecked = true
+            let width = CGFloat(CVPixelBufferGetWidth(pixels))
+            let height = CGFloat(CVPixelBufferGetHeight(pixels))
+            let contentWidth = CGFloat(info.width), contentHeight = CGFloat(info.height)
+            let fraction = CGSize(width: contentWidth / width, height: contentHeight / height)
+            // Official v0.5.1 can encode a 1x window inside a 2x canvas. Require both
+            // black padding and visible window edges before compensating on the viewer.
+            guard fraction.width >= 0.25, fraction.width < 0.95,
+                  abs(fraction.width - fraction.height) < 0.01,
+                  contentWidth > 64, contentHeight > 64 else { return }
+            let image = CIImage(cvPixelBuffer: pixels)
+            let margin: CGFloat = 16
+            guard width - contentWidth > margin, height - contentHeight > margin else { return }
+            func brightness(_ rect: CGRect, filter: String) -> UInt8 {
+                let reduced = image.applyingFilter(filter, parameters: [kCIInputExtentKey: CIVector(cgRect: rect)])
+                var rgba = [UInt8](repeating: 0, count: 4)
+                rgba.withUnsafeMutableBytes { bytes in
+                    self.imageContext.render(reduced, toBitmap: bytes.baseAddress!, rowBytes: 4,
+                                             bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                                             format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+                }
+                return rgba.prefix(3).max() ?? 0
+            }
+            let right = CGRect(x: contentWidth + margin, y: 0, width: width - contentWidth - margin, height: height)
+            let bottom = CGRect(x: 0, y: 0, width: contentWidth, height: height - contentHeight - margin)
+            let rightEdge = CGRect(x: contentWidth - margin - 2, y: height - contentHeight + margin,
+                                   width: 2, height: contentHeight - 2 * margin)
+            let bottomEdge = CGRect(x: margin, y: height - contentHeight + margin,
+                                    width: contentWidth - 2 * margin, height: 2)
+            guard brightness(right, filter: "CIAreaMaximum") <= 12,
+                  brightness(bottom, filter: "CIAreaMaximum") <= 12,
+                  brightness(rightEdge, filter: "CIAreaAverage") > 12,
+                  brightness(bottomEdge, filter: "CIAreaAverage") > 12 else { return }
+            self.visibleFraction = fraction
+            self.layoutVideo()
+            self.window?.invalidateCursorRects(for: self)
+            self.videoLog.notice("Compensated window padding: \(info.width)×\(info.height) in \(Int(width))×\(Int(height))")
+        }
     }
 
     private func enqueue(_ data: Data, keyframe: Bool) {
@@ -131,6 +213,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
         }
         waitingForKeyframe = false
         videoLayer.enqueue(sample)
+        checkWindowPadding()
         client?.receivedPicture(size: videoSize)
         decodedFrames += 1
         onDecodedFrame?()
@@ -148,7 +231,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     }
 
     private func position(_ event: NSEvent, clamp: Bool = false) -> CGPoint? {
-        ViewerInput.position(convert(event.locationInWindow, from: nil), bounds: bounds, video: videoSize, clamp: clamp)
+        ViewerInput.position(convert(event.locationInWindow, from: nil), bounds: bounds, video: displayedSize, clamp: clamp)
     }
 
     private func pointer(_ event: NSEvent, action: PointerAction, clamp: Bool = false) {
@@ -182,7 +265,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     override func rightMouseDragged(with event: NSEvent) { pointer(event, action: .move, clamp: true) }
     override func scrollWheel(with event: NSEvent) {
         guard let p = position(event, clamp: scrollActive) else { return }
-        let rect = ViewerInput.videoRect(bounds: bounds, video: videoSize)
+        let rect = ViewerInput.videoRect(bounds: bounds, video: displayedSize)
         lastPointer = p
         if event.phase.contains(.began) {
             scrollActive = true

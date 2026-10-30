@@ -156,3 +156,29 @@ picture followed both sizes rather than remaining in the top-left corner.
 The specific remote Chrome-window case still needs confirmation when the
 remote picture is available. No new test scenarios were added; the existing
 rendering check was updated to locate the backing display layer.
+
+## Released-host window padding (2026-10-30)
+
+The remote Orca stream reproduced the reported problem: the decoded pixel buffer
+was 5120×2816, with actual window contents in its top-left 2560×1408. The view
+and display layer already had the correct bounds. Resizing the layer alone
+cannot correct padding encoded into the video.
+
+The viewer now checks window streams once per video format using the advertised
+window dimensions and the decoded buffer (macOS 14.4+). It compensates only when
+both outer regions are black and both inner window edges contain visible pixels.
+Desktop streams remain unchanged. Ambiguous dark windows retain normal aspect
+fit. Display geometry, pointer coordinates and scrolling use the same corrected
+content rectangle. The remote host and its settings are unchanged.
+
+The display layer is again a clipped sublayer, explicitly sized during layout,
+so the padded canvas can extend outside the visible content rectangle. The
+previous backing-layer-only approach is superseded by this correction.
+
+Validation: the installed release viewer connected to the unchanged remote Mac
+host and displayed Desktop → Orca → Chrome → Desktop at the correct aspect-fit
+size. Chrome also followed window zoom and restore. Release build, code signature
+verification and existing viewer tests passed (4 passed, 1 integration scenario
+skipped because its opt-in host environment was absent). No test scenarios were
+added. Entirely dark window edges are deliberately not auto-cropped; this
+compatibility correction requires macOS 14.4 or newer on the viewer.

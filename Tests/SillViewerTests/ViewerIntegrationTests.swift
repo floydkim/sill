@@ -44,7 +44,7 @@ final class ViewerIntegrationTests: XCTestCase {
         }.store(in: &subscriptions)
         surface.onDecodedFrame = {
             guard !rendered, surface.decodedFrames >= 12,
-                  let layer = surface.layer as? AVSampleBufferDisplayLayer,
+                  let layer = surface.layer?.sublayers?.first as? AVSampleBufferDisplayLayer,
                   layer.status == .rendering else { return }
             rendered = true
             picture.fulfill()
