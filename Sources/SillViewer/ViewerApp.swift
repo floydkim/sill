@@ -19,6 +19,10 @@ struct ViewerScreen: View {
                 Text(client.status).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 if client.busy { ProgressView().controlSize(.small) }
                 if client.connected {
+                    if client.hostSettings?.screenLocked == true {
+                        Label("Mac Locked", systemImage: "lock.fill")
+                            .font(.caption).foregroundStyle(.orange)
+                    }
                     Button {
                         surface.releaseInput()
                         showingScreenList.toggle()
@@ -45,6 +49,14 @@ struct ViewerScreen: View {
                 }.padding(12).background(Color.orange.opacity(0.12))
             }
             if client.connected {
+                if client.hostSettings?.screenLocked == true {
+                    HStack {
+                        Label("The remote Mac is locked. App pictures may still update, but input goes to the lock screen.", systemImage: "lock.fill")
+                            .font(.callout)
+                        Spacer()
+                        Button("Show Lock Screen") { surface.releaseInput(); client.select(.desktop) }
+                    }.padding(12).background(Color.orange.opacity(0.12))
+                }
                 if showingScreenList {
                     sourceBrowser
                     Divider()

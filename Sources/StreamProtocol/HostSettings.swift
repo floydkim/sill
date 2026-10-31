@@ -222,17 +222,20 @@ public struct HostSettingsState: Codable, Hashable, Sendable {
     /// device that pairs during its session hears true. Nil from hosts before 2026-10-29, which took
     /// Direct Wireless from any session at home. The connection's own, like `away` and `link`.
     public var sessionPaired: Bool?
+    /// Read-only console state; nil from older hosts or when the session cannot be identified.
+    public var screenLocked: Bool?
 
     public init(settings: StreamSettings, persistent: Bool, virtualDisplayAvailable: Bool,
                 virtualDisplayNote: String? = nil, softwareEncoder: Bool, stream: RunningStream? = nil,
                 answering: Int? = nil, away: AwayQuality? = nil, link: LinkReport? = nil, audioNote: String? = nil,
-                sessionPaired: Bool? = nil) {
+                sessionPaired: Bool? = nil, screenLocked: Bool? = nil) {
         self.settings = settings; self.persistent = persistent
         self.virtualDisplayAvailable = virtualDisplayAvailable; self.virtualDisplayNote = virtualDisplayNote
         self.softwareEncoder = softwareEncoder; self.stream = stream; self.answering = answering
         self.away = away; self.link = link
         self.audioNote = audioNote
         self.sessionPaired = sessionPaired
+        self.screenLocked = screenLocked
     }
 }
 

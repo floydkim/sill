@@ -49,6 +49,11 @@ package final class StreamCoordinator {
     private var displayWake: DisplayWake
     private let displayActivity: DisplayActivity
     private var privacyCurtain: PrivacyCurtain?
+    private var displayRecoveryTask: Task<Void, Never>?
+    private var displayRecoveryID: UUID?
+    private var displayRecoveryAttempts: [CFAbsoluteTime] = []
+    private var lastRequestedSource: StreamSource?
+    private var workspaceObservers: [NSObjectProtocol] = []
     /// The parameter sets that last went out, forgotten as each stream starts (`select`): a stream's
     /// first, and any that differ, are a new frame size for the devices (`parameterSetsSent`).
     private var lastParameterSets: Data?
@@ -454,6 +459,7 @@ package final class StreamCoordinator {
             Task { @MainActor in
                 guard let self, !self.shuttingDown else { return }
                 let id = ObjectIdentifier(connection)
+                if !self.hasActiveDevices { self.displayRecoveryAttempts = [] }
                 self.routes[id] = route
                 // A paired device shows its paired name until its own stats arrive, and a remote one
                 // its route; a home device its link (Wired, Wi-Fi, Direct) as soon as it is known.
@@ -485,6 +491,7 @@ package final class StreamCoordinator {
                 // A sleeping display gives black frames: the session's start wakes it, as a key would.
                 if !cut {
                     self.updatePrivacyCurtain()
+                    if self.displayAsleep { self.recoverDisplay(wake: true) }
                     self.deviceActive(.connect, connection)
                 }
                 // Catalog first: the client's UI needs it even if the keyframe is slow to come.
@@ -524,6 +531,7 @@ package final class StreamCoordinator {
                 self.viewportRefusedLineAt[id] = nil
                 self.routes[id] = nil
                 self.updatePrivacyCurtain()
+                self.cancelDisplayRecoveryIfIdle()
                 self.lastPairingWanted[id] = nil
                 self.connections[id] = nil
                 self.lastPublished[id] = nil
@@ -595,7 +603,12 @@ package final class StreamCoordinator {
         capture.onStopped = { [weak self] error in
             print("Capture stopped: \(error.localizedDescription)")
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, !self.shuttingDown else { return }
+                let failure = error as NSError
+                if !self.synthetic, self.displayAsleep || (failure.domain == "com.apple.ScreenCaptureKit.SCStreamErrorDomain" && failure.code == -3815) {
+                    self.recoverDisplay(wake: true)
+                    return
+                }
                 if self.active == .desktop, let id = self.desktopCaptureID,
                    !WindowCatalog.activeDisplayIDs().contains(id) {
                     await self.catalog.refreshWindows()
@@ -664,11 +677,26 @@ package final class StreamCoordinator {
         }
         Stats.shared.onTick = { [weak self] counts in
             let encoded = counts["enc.out"] ?? 0
-            Task { @MainActor in self?.status.update { $0.encodedFPS = encoded } }
+            Task { @MainActor in
+                guard let self else { return }
+                let locked = !self.synthetic && self.hasActiveDevices ? SessionLock.shared.screenLocked() : nil
+                self.status.update { $0.encodedFPS = encoded; $0.screenLocked = locked }
+            }
         }
         // A check's frame came back late (on a utility queue): the encoder may not be stuck after all.
         EncoderProbe.onStalledProbeBack = { [weak self] seconds in
             Task { @MainActor in self?.stalledProbeCameBack(after: seconds) }
+        }
+        if appKitLoop, !synthetic {
+            let center = NSWorkspace.shared.notificationCenter
+            workspaceObservers = [
+                center.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+                    Task { @MainActor in self?.recoverDisplay(wake: true) }
+                },
+                center.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                    Task { @MainActor in self?.recoverDisplay(wake: false) }
+                }
+            ]
         }
     }
 
@@ -1488,6 +1516,12 @@ package final class StreamCoordinator {
     /// device, or a pick made before the device heard of the close, can still let it land during
     /// a restart that follows the user's pick, and then it is queued like the user's own.
     private func handlePick(_ source: StreamSource) async {
+        lastRequestedSource = source == .none ? nil : source
+        if source == .none {
+            displayRecoveryTask?.cancel()
+            displayRecoveryTask = nil
+            displayRecoveryID = nil
+        }
         if switching {
             if let r = restartOf, source != r { pickArrivedWhileSwitching = source }
             return
@@ -1505,6 +1539,7 @@ package final class StreamCoordinator {
     /// comes forward too, whichever select commits that change (see `cameHome`).
     func select(_ source: StreamSource, bringForward: Bool = false) async {
         guard !switching, !shuttingDown else { return }
+        if source != .none { lastRequestedSource = source }
         switching = true
         if source != active { missingPolls = 0 }    // a window's looks off the list are its own
         restartOf = (source == active && source != .none) ? source : nil
@@ -2010,6 +2045,7 @@ package final class StreamCoordinator {
         // A menu choice or fetch of it still waiting for its turn is neither made nor read.
         menus.clientRevoked(id)
         updatePrivacyCurtain()
+        cancelDisplayRecoveryIfIdle()
         // TEST ONLY (SILL_TEST_INPUT_LOG, a synthetic host): where its input stops landing, so a test
         // reads what was posted for it after this line.
         if injector.testLog {
@@ -2536,6 +2572,7 @@ package final class StreamCoordinator {
     /// window back and dies of the signal with no goodbye (`releaseKeysForExit`): its devices notice
     /// by liveness.
     package func shutdownForExit() {
+        displayRecoveryTask?.cancel()
         injector.releaseAll()
         server.goodbyeAll(Goodbye(reason: Goodbye.quit), within: 0.1)
         shuttingDown = true
@@ -2551,7 +2588,57 @@ package final class StreamCoordinator {
             privacyCurtain = PrivacyCurtain(excludedDisplay: { [weak self] in self?.stage.display?.displayID },
                 report: { [weak self] problem in self?.status.update { $0.privacyCurtainProblem = problem } })
         }
-        privacyCurtain?.update(enabled: enabled, devicesPresent: routes.keys.contains { !revoked.contains($0) })
+        privacyCurtain?.update(enabled: enabled, devicesPresent: hasActiveDevices)
+    }
+
+    private var hasActiveDevices: Bool { routes.keys.contains { !revoked.contains($0) } }
+    private var displayAsleep: Bool {
+        CGDisplayIsAsleep(CGMainDisplayID()) != 0 || WindowCatalog.activeDisplayIDs().isEmpty
+    }
+
+    private func cancelDisplayRecoveryIfIdle() {
+        guard !hasActiveDevices else { return }
+        displayRecoveryTask?.cancel()
+        displayRecoveryTask = nil
+        displayRecoveryID = nil
+        lastRequestedSource = nil
+    }
+
+    private func recoverDisplay(wake: Bool) {
+        guard !synthetic, !shuttingDown, hasActiveDevices, displayRecoveryTask == nil else { return }
+        let now = CFAbsoluteTimeGetCurrent()
+        displayRecoveryAttempts.removeAll { now - $0 > 60 }
+        guard displayRecoveryAttempts.count < 3 else {
+            print("Display recovery paused: three attempts in a minute. Check the app turning off this Mac's displays.")
+            return
+        }
+        displayRecoveryAttempts.append(now)
+        if wake { displayActivity.declare(for: "remote session", .connect) }
+        let recoveryID = UUID()
+        displayRecoveryID = recoveryID
+        displayRecoveryTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self.displayRecoveryID == recoveryID {
+                    self.displayRecoveryTask = nil
+                    self.displayRecoveryID = nil
+                }
+            }
+            for _ in 0..<8 {
+                do { try await Task.sleep(for: .milliseconds(500)) } catch { return }
+                guard !self.shuttingDown, self.hasActiveDevices else { return }
+                guard !self.displayAsleep, !self.switching else { continue }
+                await self.catalog.refreshWindows(timeout: 3)
+                guard !Task.isCancelled, !self.shuttingDown, self.hasActiveDevices else { return }
+                let source = self.lastRequestedSource ?? .desktop
+                await self.handlePick(source)
+                if self.active != .none {
+                    print("Display recovery: restarted the selected source after waking.")
+                    return
+                }
+            }
+            print("Display recovery: no picture source available after waiting; select Desktop or a window again.")
+        }
     }
 
     package func preparePrivacyForExit() async -> Bool {
@@ -3093,7 +3180,8 @@ package final class StreamCoordinator {
                                  away: away,
                                  link: link,
                                  audioNote: t.sendAudio ? s.audio?.note : nil,
-                                 sessionPaired: sessionPaired(id))
+                                 sessionPaired: sessionPaired(id),
+                                 screenLocked: synthetic ? nil : SessionLock.shared.screenLocked())
     }
 
     /// Whether connection `id`'s key is on this Mac's trust list now, as the status snapshot lists it

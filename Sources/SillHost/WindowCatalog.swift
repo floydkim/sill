@@ -266,11 +266,17 @@ final class WindowCatalog {
 
     // MARK: Windows
 
-    func refreshWindows() async {
+    func refreshWindows(timeout: TimeInterval? = nil) async {
         refreshSeq += 1
         let seq = refreshSeq
         guard !Self.screenless else { return }      // TEST ONLY: ScreenCaptureKit never asked
-        guard let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) else { return }
+        let look: SCShareableContent?
+        if let timeout {
+            look = await Self.shareableContent(excludingDesktopWindows: false, onScreenWindowsOnly: true, timeout: timeout)
+        } else {
+            look = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        }
+        guard let content = look else { return }
         // The staged window, if the on-screen list dropped it: one extra SCShareableContent call per
         // poll, and only then. Fetched before the sequence check so its await cannot let an older
         // refresh overwrite a newer one.

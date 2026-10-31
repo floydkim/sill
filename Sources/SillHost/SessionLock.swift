@@ -25,6 +25,13 @@ package final class SessionLock {
 
     private init() {}
 
+    func screenLocked() -> Bool? {
+        guard let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any],
+              (dictionary["kCGSSessionOnConsoleKey"] as? NSNumber)?.boolValue == true else { return nil }
+        guard let value = dictionary["CGSSessionScreenIsLocked"] else { return false }
+        return (value as? NSNumber)?.boolValue
+    }
+
     /// Require an explicit positive reading before removing a privacy cover.
     func confirmedLocked() -> Bool {
         let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any]
