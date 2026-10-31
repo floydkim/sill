@@ -84,72 +84,72 @@ enum MenuBuilder {
         }
         menu.append(.separator)
 
-        menu.append(MenuEntry(kind: .item, title: "Virtual Display", subtitle: p.virtualDisplayNote,
+        menu.append(MenuEntry(kind: .item, title: "가상 디스플레이", subtitle: p.virtualDisplayNote,
                               checked: config.virtualDisplay, action: .setVirtualDisplay(!config.virtualDisplay)))
-        menu.append(MenuEntry(kind: .item, title: "Frame Rate", children: [60, 120].map { fps in
-            MenuEntry(kind: .item, title: "Up to \(fps) fps", checked: config.maxFPS == fps, action: .setMaxFPS(fps))
+        menu.append(MenuEntry(kind: .item, title: "프레임률", children: [60, 120].map { fps in
+            MenuEntry(kind: .item, title: "최대 \(fps) fps", checked: config.maxFPS == fps, action: .setMaxFPS(fps))
         }))
         var quality = QualityPreset.allCases.map { preset in
-            MenuEntry(kind: .item, title: preset.title, checked: config.bitrate == preset.rawValue, action: .setBitrate(preset.rawValue))
+            MenuEntry(kind: .item, title: preset.koreanTitle, checked: config.bitrate == preset.rawValue, action: .setBitrate(preset.rawValue))
         }
         if QualityPreset(rawValue: config.bitrate) == nil {
-            quality.append(MenuEntry(kind: .item, title: QualityPreset.title(forBitrate: config.bitrate), checked: true, enabled: false))
+            quality.append(MenuEntry(kind: .item, title: QualityPreset.koreanTitle(forBitrate: config.bitrate), checked: true, enabled: false))
         }
         // The home quality, as ever; while every connected device is away, the subtitle says which
         // quality runs instead (the away one is set in Settings › Streaming, never here).
         let qualityNote = p.away
-            ? "Away from home now: \(QualityPreset.shortTitle(bitrate: config.awayBitrate, captureScale: Double(config.awayCaptureScale)))"
-            : "Per 60 fps; a 120 fps stream gets twice as much"
-        menu.append(MenuEntry(kind: .item, title: "Quality", subtitle: qualityNote, children: quality))
+            ? "외부 네트워크 품질 적용 중: \(QualityPreset.koreanShortTitle(bitrate: config.awayBitrate, captureScale: Double(config.awayCaptureScale)))"
+            : "60 fps 기준이며, 120 fps 영상은 두 배를 사용합니다"
+        menu.append(MenuEntry(kind: .item, title: "영상 품질", subtitle: qualityNote, children: quality))
         // Standard is one pixel a point: a quarter of a Retina display's pixels, and on a 1x display
         // the same capture as Retina (CaptureScale holds the knob to the display's own scale).
-        menu.append(MenuEntry(kind: .item, title: "Resolution", children: [
-            MenuEntry(kind: .item, title: "Retina", checked: config.captureScale >= 1.5, action: .setCaptureScale(2)),
-            MenuEntry(kind: .item, title: "Standard", subtitle: "On a Retina display, a quarter of the pixels to encode",
+        menu.append(MenuEntry(kind: .item, title: "해상도", children: [
+            MenuEntry(kind: .item, title: "레티나", checked: config.captureScale >= 1.5, action: .setCaptureScale(2)),
+            MenuEntry(kind: .item, title: "표준", subtitle: "레티나 디스플레이에서 인코딩 픽셀 수가 1/4로 줄어듭니다",
                       checked: config.captureScale < 1.5, action: .setCaptureScale(1)),
         ]))
         // The last of what streams: the sound of it (docs/audio-plan.md §6), a beta, which its title
         // says (in the title, so menu.txt and VoiceOver have it too). Absolute, like Virtual Display:
         // it sets the value it showed.
-        menu.append(MenuEntry(kind: .item, title: "Send Audio (Beta)", subtitle: "The Mac keeps playing it too",
+        menu.append(MenuEntry(kind: .item, title: "오디오 전송 (베타)", subtitle: "Mac에서도 오디오가 계속 재생됩니다",
                               checked: config.sendAudio, action: .setSendAudio(!config.sendAudio)))
         menu.append(.separator)
 
         // How Sill runs on this Mac, not the picture: devices reach it over peer-to-peer Wi-Fi too.
         // Here as well as in Settings because it is situational (on in a café, off at home).
-        menu.append(MenuEntry(kind: .item, title: "Direct Wireless Connection",
-                              subtitle: "No shared network needed; Wi\u{2011}Fi streams can stutter",
+        menu.append(MenuEntry(kind: .item, title: "직접 무선 연결",
+                              subtitle: "같은 네트워크 없이 연결합니다. Wi‑Fi 영상이 끊길 수 있습니다",
                               checked: config.directWireless, action: .setDirectWireless(!config.directWireless)))
         // Opens the pane rather than toggling: turning it on is worth reading what it does, and the
         // internet switch stays one deliberate step deeper, never in the menu.
         if let note = p.remoteAccessNote {
-            menu.append(MenuEntry(kind: .item, title: "Remote Access…", subtitle: note, action: .showSettingsTab(.remoteAccess)))
+            menu.append(MenuEntry(kind: .item, title: "원격 접근…", subtitle: note, action: .showSettingsTab(.remoteAccess)))
         }
         var loginNote: String?
-        if !login.available { loginNote = "Available when Sill runs from its app bundle" }
+        if !login.available { loginNote = "Sill 앱으로 실행할 때 사용할 수 있습니다" }
         else if let error = login.error { loginNote = error }
-        else if login.needsApproval { loginNote = "Approve Sill in System Settings › Login Items" }
-        menu.append(MenuEntry(kind: .item, title: "Launch at Login", subtitle: loginNote, checked: login.on,
+        else if login.needsApproval { loginNote = "시스템 설정 › 로그인 항목에서 Sill을 허용하세요" }
+        menu.append(MenuEntry(kind: .item, title: "로그인 시 실행", subtitle: loginNote, checked: login.on,
                               enabled: login.available, action: .toggleLaunchAtLogin))
-        menu.append(MenuEntry(kind: .item, title: "Permissions", children: [
+        menu.append(MenuEntry(kind: .item, title: "권한", children: [
             permissions.screenRecording
-                ? MenuEntry(kind: .item, title: "Screen Recording: Allowed", enabled: false)
-                : MenuEntry(kind: .item, title: "Screen Recording: Not Allowed…", action: .allowScreenRecording),
+                ? MenuEntry(kind: .item, title: "화면 기록: 허용됨", enabled: false)
+                : MenuEntry(kind: .item, title: "화면 기록: 허용되지 않음…", action: .allowScreenRecording),
             permissions.accessibility
-                ? MenuEntry(kind: .item, title: "Accessibility: Allowed", enabled: false)
-                : MenuEntry(kind: .item, title: "Accessibility: Not Allowed…", action: .allowAccessibility),
+                ? MenuEntry(kind: .item, title: "손쉬운 사용: 허용됨", enabled: false)
+                : MenuEntry(kind: .item, title: "손쉬운 사용: 허용되지 않음…", action: .allowAccessibility),
             .separator,
-            MenuEntry(kind: .item, title: "Open Privacy & Security…", action: .openPrivacy),
+            MenuEntry(kind: .item, title: "개인정보 보호 및 보안 열기…", action: .openPrivacy),
         ]))
         menu.append(.separator)
 
         if p.remoteAccessNote != nil {
-            menu.append(MenuEntry(kind: .item, title: "Pair iPhone or iPad…", enabled: p.canPair, action: .showPairing))
+            menu.append(MenuEntry(kind: .item, title: "iPhone 또는 iPad 페어링…", enabled: p.canPair, action: .showPairing))
         }
-        menu.append(MenuEntry(kind: .item, title: "Show Log…", action: .showLog))
-        menu.append(MenuEntry(kind: .item, title: "Settings…", key: ",", action: .showSettings))
+        menu.append(MenuEntry(kind: .item, title: "로그 보기…", action: .showLog))
+        menu.append(MenuEntry(kind: .item, title: "설정…", key: ",", action: .showSettings))
         menu.append(.separator)
-        menu.append(MenuEntry(kind: .item, title: "Quit Sill", key: "q", action: .quit))
+        menu.append(MenuEntry(kind: .item, title: "Sill 종료", key: "q", action: .quit))
         return menu
     }
 
@@ -212,7 +212,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
     private static let attentionImage: NSImage? = {
         let config = NSImage.SymbolConfiguration(paletteColors: [.systemOrange])
-        let image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Needs attention")?
+        let image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "확인 필요")?
             .withSymbolConfiguration(config)
         image?.isTemplate = false
         return image

@@ -40,7 +40,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
         layer?.masksToBounds = true
         layer?.addSublayer(videoLayer)
         videoLayer.videoGravity = .resizeAspect
-        setAccessibilityLabel("Remote Mac screen")
+        setAccessibilityLabel("원격 Mac 화면")
         setAccessibilityRole(.group)
         NotificationCenter.default.addObserver(self, selector: #selector(releaseInput), name: NSWindow.didResignKeyNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(recoverPicture), name: NSApplication.didBecomeActiveNotification, object: nil)
@@ -104,7 +104,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
             allocator: nil, parameterSetCount: buffers.count, parameterSetPointers: buffers.map { UnsafePointer($0) },
             parameterSetSizes: ps.sets.map(\.count), nalUnitHeaderLength: Int32(ps.nalUnitHeaderLength),
             extensions: nil, formatDescriptionOut: &desc)
-        guard status == noErr, let desc else { client?.error = "Cannot decode HEVC format (\(status))."; return }
+        guard status == noErr, let desc else { client?.error = "HEVC 형식을 디코딩할 수 없습니다 (\(status))."; return }
         client?.awaitPicture()
         lastParameters = ps.encoded()
         format = desc

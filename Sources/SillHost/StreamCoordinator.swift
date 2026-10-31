@@ -1786,7 +1786,7 @@ package final class StreamCoordinator {
             if virtualDisplay, stage.isStaged, let w = picked {
                 // The display filter failed to start: send the window home and stream it there.
                 print("Capture on the virtual display failed: \(error); retrying with the real window.")
-                status.update { $0.lastStageFailure = "capture on the display failed" }
+                status.update { $0.lastStageFailure = "디스플레이의 화면을 캡처하지 못함" }
                 stage.release()
                 if comeForward, !shuttingDown { activateAndRaise(window: w) }   // regular mode now: a pick comes forward
                 let fallback = "\(w.owningApplication?.applicationName ?? "?") — \(w.title ?? "")\(useSoftwareEncoder ? " (software encoder)" : "")"
@@ -2514,7 +2514,7 @@ package final class StreamCoordinator {
         case .test:
             return .source(SyntheticAudio(queue: audio.queue), line: "Audio: a test tone (440 Hz at -30 dBFS, a click at each second).")
         case .desktop:
-            guard let display = catalog.display else { return .failed("no display to capture from") }
+            guard let display = catalog.display else { return .failed("캡처할 디스플레이가 없습니다") }
             let filter: SCContentFilter
             if let own = catalog.ownApplication {
                 filter = SCContentFilter(display: display, excludingApplications: [own], exceptingWindows: [])
@@ -2523,8 +2523,8 @@ package final class StreamCoordinator {
             }
             return .source(AudioCapture(filter: filter, queue: audio.queue), line: "Audio: capturing the whole Mac's sound (every app but Sill).")
         case .app(let pid, let name):
-            guard let display = catalog.display else { return .failed("no display to capture from") }
-            guard let app = await runningApplication(pid) else { return .failed("\(name) is not among the apps ScreenCaptureKit lists") }
+            guard let display = catalog.display else { return .failed("캡처할 디스플레이가 없습니다") }
+            guard let app = await runningApplication(pid) else { return .failed("ScreenCaptureKit에서 \(name) 앱을 찾지 못했습니다") }
             let filter = SCContentFilter(display: display, including: [app], exceptingWindows: [])
             return .source(AudioCapture(filter: filter, queue: audio.queue), line: "Audio: capturing \(name)'s sound (every window of it).")
         }
@@ -2557,7 +2557,7 @@ package final class StreamCoordinator {
         stageLosses += 1
         print("The system removed the virtual display; the window is back on a real display.")
         if stageLosses > 2 {
-            stage.disabledReason = "the system removed the virtual display \(stageLosses) times"
+            stage.disabledReason = "시스템에서 가상 디스플레이를 \(stageLosses)회 제거했습니다"
             status.update { $0.virtualDisplayProblem = stage.disabledReason }
         }
         if case .window = active { await select(active) }
@@ -3200,11 +3200,11 @@ package final class StreamCoordinator {
     /// permission lines: permissions are polled, not event-driven, and a missing one still reaches
     /// the device as the fallback reason on the next pick.
     private func virtualDisplayNote(target t: HostConfig, snapshot s: HostStatusSnapshot) -> String? {
-        if !appKitLoop { return "Start SillHost with --virtual-display to use it." }
-        if s.virtualDisplayAPIMissing, let p = s.virtualDisplayProblem { return "Not available on this version of macOS: \(p)" }
+        if !appKitLoop { return "가상 디스플레이를 사용하려면 SillHost를 --virtual-display 옵션으로 실행하세요." }
+        if s.virtualDisplayAPIMissing, let p = s.virtualDisplayProblem { return "이 macOS 버전에서는 사용할 수 없습니다: \(p)" }
         guard t.virtualDisplay else { return nil }
-        if let p = s.virtualDisplayProblem { return "Off for this session: \(p). Turn it off and on to try again." }
-        if let f = s.lastStageFailure { return "The last window streamed where it is: \(f)" }
+        if let p = s.virtualDisplayProblem { return "이번 연결에서 사용할 수 없습니다: \(p). 설정을 껐다가 켜서 다시 시도하세요." }
+        if let f = s.lastStageFailure { return "마지막 창은 원래 위치에서 공유했습니다: \(f)" }
         return nil
     }
 

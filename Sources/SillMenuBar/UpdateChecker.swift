@@ -126,8 +126,8 @@ final class UpdateChecker {
     /// The running version as SillVersion shows it ("0.3"), for the menu's subtitle.
     var runningVersion: SillVersion? { running }
 
-    static func time(_ d: Date) -> String { d.formatted(date: .omitted, time: .shortened) }
-    static func date(_ d: Date) -> String { d.formatted(date: .abbreviated, time: .shortened) }
+    static func time(_ d: Date) -> String { d.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "ko_KR"))) }
+    static func date(_ d: Date) -> String { d.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "ko_KR"))) }
 
     // MARK: Starting and scheduling
 

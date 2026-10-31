@@ -288,7 +288,7 @@ package enum FirewallRule {
         package static let tool = "/usr/libexec/ApplicationFirewall/socketfilterfw"
 
         /// Where Block all incoming connections is turned off (macOS 13 and later).
-        static let blockAllPlace = "Turn off Block all incoming connections in System Settings › Network › Firewall › Options."
+        static let blockAllPlace = "시스템 설정 › 네트워크 › 방화벽 › 옵션에서 ‘들어오는 모든 연결 차단’을 끄세요."
 
         /// The Terminal command that unblocks what the verdict says is blocked, one `--unblockapp` a
         /// path (the tool takes several options in one run, in order). The executable's first and the
@@ -318,14 +318,14 @@ package enum FirewallRule {
             return lines.enumerated().map { i, line in i < lines.count - 1 ? line + " \\" : line }
         }
 
-        /// What the rules block: "Sill’s executable", the bundle by its name ("Sill.app"), or
+        /// What the rules block: "Sill 실행 파일", the bundle by its name ("Sill.app"), or
         /// "Sill.app and its executable".
         static func what(executable: String?, bundle: String?) -> String {
             let name = bundle.map { ($0 as NSString).lastPathComponent }
             switch (executable, name) {
-            case (.some, .some(let name)): return "\(name) and its executable"
+            case (.some, .some(let name)): return "\(name) 및 실행 파일"
             case (nil, .some(let name)): return name
-            default: return "Sill’s executable"
+            default: return "Sill 실행 파일"
             }
         }
 
@@ -334,9 +334,9 @@ package enum FirewallRule {
         package static func paneLine(_ verdict: Verdict) -> String? {
             switch verdict {
             case .blocks(let executable, let bundle):
-                return "The macOS firewall blocks \(what(executable: executable, bundle: bundle)), so devices on the network cannot connect. In Terminal:"
+                return "macOS 방화벽이 \(what(executable: executable, bundle: bundle))을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요:"
             case .blocksAll:
-                return "The macOS firewall blocks all incoming connections, so devices on the network cannot connect. \(blockAllPlace)"
+                return "macOS 방화벽이 들어오는 모든 연결을 차단해 네트워크의 기기가 연결할 수 없습니다. \(blockAllPlace)"
             case .off, .allows, .unknown:
                 return nil
             }
@@ -345,8 +345,8 @@ package enum FirewallRule {
         /// The status menu's "Devices Can’t Connect" subtitle: one sentence, one line.
         package static func menuSubtitle(_ verdict: Verdict) -> String? {
             switch verdict {
-            case .blocks(let executable, let bundle): return "The macOS firewall blocks \(what(executable: executable, bundle: bundle))."
-            case .blocksAll: return "The macOS firewall blocks all incoming connections."
+            case .blocks(let executable, let bundle): return "macOS 방화벽이 \(what(executable: executable, bundle: bundle))을 차단하고 있습니다."
+            case .blocksAll: return "macOS 방화벽이 들어오는 모든 연결을 차단하고 있습니다."
             case .off, .allows, .unknown: return nil
             }
         }

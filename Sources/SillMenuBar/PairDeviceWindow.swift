@@ -12,7 +12,7 @@ final class PairingWindowState {
     var offer: RemoteAccess.PairingOffer?
 }
 
-/// "Pair iPhone or iPad" (docs/remote-access-plan.md §6.2, docs/home-pairing-plan.md §6.3): a
+/// "iPhone 또는 iPad 페어링" (docs/remote-access-plan.md §6.2, docs/home-pairing-plan.md §6.3): a
 /// standalone window, not a sheet, because a device near the Mac can open it (its ask, or Pair This
 /// iPad…) while Settings is closed. One instance: opening it again brings it forward with the same
 /// code. Closing it cancels the pairing window, and the code dies with it.
@@ -37,7 +37,7 @@ final class PairDeviceWindowController: NSWindowController, NSWindowDelegate {
         self.model = model
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 600), styleMask: [.titled, .closable],
                               backing: .buffered, defer: true)
-        window.title = "Pair iPhone or iPad"
+        window.title = "iPhone 또는 iPad 페어링"
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert([.moveToActiveSpace, .fullScreenAuxiliary])
         // Before the window is ever on screen (`show` sets it again with its offer).
@@ -157,8 +157,8 @@ struct PairDeviceView: View {
             // A device-opened window is the home door's: the remote door's state is not its own.
             if offer.byDevice { return .waiting(triesLeft: triesLeft, wrongFrom: wrongFrom) }
             switch status.listener {
-            case .portInUse(let p): return .doorDown("Can’t pair while port \(p) is in use.")
-            case .failed: return .doorDown("Can’t pair: remote access couldn’t start. Sill tries again every 30 seconds.")
+            case .portInUse(let p): return .doorDown("포트 \(p)가 사용 중이어서 페어링할 수 없습니다.")
+            case .failed: return .doorDown("원격 접속을 시작할 수 없어 페어링할 수 없습니다. Sill이 30초마다 다시 시도합니다.")
             case .off, .listening: return .waiting(triesLeft: triesLeft, wrongFrom: wrongFrom)
             }
         case .paired(let name): return .paired(name)
@@ -187,15 +187,15 @@ struct PairDeviceView: View {
                 Text(Self.askedLine(offer))
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Point it at this code, or tap Enter Code Instead and type the code.")
+                Text("이 코드를 스캔하거나 ‘Enter Code Instead’를 눌러 코드를 직접 입력하세요.")
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 if let who = offer.requestedBy {
-                    Text("\(who) asked to pair.")
+                    Text("\(who) 기기에서 페어링을 요청했습니다.")
                         .font(.headline)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("In Sill on your iPhone or iPad, tap this Mac, or tap Add a Mac… when you’re away, then point it at this code.")
+                Text("iPhone이나 iPad의 Sill에서 이 Mac을 선택하세요. 외부에서 접속 중이라면 ‘Add a Mac…’을 선택한 뒤 이 코드를 스캔하세요.")
                     .fixedSize(horizontal: false, vertical: true)
             }
             QRCodeView(text: offer.url, spent: isSpent)
@@ -203,7 +203,7 @@ struct PairDeviceView: View {
                 .frame(maxWidth: .infinity)
             lower
             if !remoteAccess, !offer.byDevice {
-                Text("Remote Access is off. Paired devices can connect away from home once you turn it on.")
+                Text("원격 접속이 꺼져 있습니다. 켜면 페어링한 기기가 외부에서도 연결할 수 있습니다.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -228,7 +228,7 @@ struct PairDeviceView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
                     GridRow {
-                        Text("Code").foregroundStyle(.secondary)
+                        Text("코드").foregroundStyle(.secondary)
                         Text(offer.groupedCode)
                             .font(.system(size: 22, weight: .medium, design: .monospaced))
                             .textSelection(.enabled)
@@ -236,28 +236,28 @@ struct PairDeviceView: View {
                 }
                 countdown
                 if let wrongFrom {
-                    Label("A wrong code came from \(wrongFrom). \(triesLeft) tr\(triesLeft == 1 ? "y" : "ies") left.",
+                    Label("\(wrongFrom)에서 잘못된 코드를 입력했습니다. \(triesLeft)회 더 시도할 수 있습니다.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
-                Text("A paired device can see and control this Mac.")
+                Text("페어링한 기기는 이 Mac의 화면을 보고 조작할 수 있습니다.")
                     .foregroundStyle(.secondary)
-                Text("Didn’t ask for this? Click Cancel.")
+                Text("요청한 적이 없다면 취소를 누르세요.")
                     .foregroundStyle(.secondary)
             }
         case .waiting(let triesLeft, let wrongFrom):
             VStack(alignment: .leading, spacing: 10) {
-                Text("Can’t scan? Tap Enter Code Instead, and type:")
+                Text("스캔할 수 없다면 ‘Enter Code Instead’를 누르고 다음 정보를 입력하세요.")
                 Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 6) {
                     GridRow {
-                        Text("Address").foregroundStyle(.secondary)
+                        Text("주소").foregroundStyle(.secondary)
                         let shown = address
                         VStack(alignment: .leading, spacing: 2) {
                             Text(shown.primary).textSelection(.enabled)
                             if let other = shown.secondary {
-                                // "or" is a text of its own, so selecting the address never takes it along.
+                                // "또는" is a text of its own, so selecting the address never takes it along.
                                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                    Text("or")
+                                    Text("또는")
                                     Text(other).textSelection(.enabled)
                                 }
                                 .foregroundStyle(.secondary)
@@ -266,7 +266,7 @@ struct PairDeviceView: View {
                         }
                     }
                     GridRow {
-                        Text("Code").foregroundStyle(.secondary)
+                        Text("코드").foregroundStyle(.secondary)
                         Text(offer.groupedCode)
                             .font(.system(size: 22, weight: .medium, design: .monospaced))
                             .textSelection(.enabled)
@@ -274,21 +274,21 @@ struct PairDeviceView: View {
                 }
                 countdown
                 if let wrongFrom {
-                    Label("A wrong code came from \(wrongFrom). \(triesLeft) tr\(triesLeft == 1 ? "y" : "ies") left.",
+                    Label("\(wrongFrom)에서 잘못된 코드를 입력했습니다. \(triesLeft)회 더 시도할 수 있습니다.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
-                Text("A paired device can see and control this Mac.")
+                Text("페어링한 기기는 이 Mac의 화면을 보고 조작할 수 있습니다.")
                     .foregroundStyle(.secondary)
             }
         case .paired(let name):
-            Label("Paired with \(name).", systemImage: "checkmark.circle.fill")
+            Label("\(name) 기기와 페어링했습니다.", systemImage: "checkmark.circle.fill")
         case .stopped:
-            Text("Pairing stopped after \(5) wrong codes.")
+            Text("코드를 \(5)회 잘못 입력해 페어링을 중단했습니다.")
         case .expired:
-            Text("This code expired.")
+            Text("코드가 만료됐습니다.")
         case .closed:
-            Text("This code no longer works.")
+            Text("더 이상 사용할 수 없는 코드입니다.")
         case .doorDown(let text):
             Label(text, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
@@ -310,12 +310,14 @@ struct PairDeviceView: View {
     /// A window a device opened: its first line, "iPad (iPad14,1) on this network asked to pair.",
     /// which VoiceOver also announces as it comes up (PairDeviceWindowController.show).
     static func askedLine(_ offer: RemoteAccess.PairingOffer) -> String {
-        "\(offer.requestedBy ?? "A device") \(offer.askedFrom ?? "on this network") asked to pair."
+        let device = offer.requestedBy ?? "기기"
+        let route = offer.askedFrom.map(StatusText.koreanRoute) ?? "현재 네트워크"
+        return "\(device) 기기에서 페어링을 요청했습니다(\(route))."
     }
 
     static func countdown(until end: Date, now: Date) -> String {
         let left = max(0, Int(end.timeIntervalSince(now).rounded(.up)))
-        return "Works once, for the next \(left / 60):\(String(format: "%02d", left % 60))."
+        return "한 번만 사용할 수 있습니다. 남은 시간 \(left / 60):\(String(format: "%02d", left % 60))"
     }
 
     /// What to type on the device: Tailscale's name with its IPv4 under it, else a Tailscale IP,
@@ -332,24 +334,24 @@ struct PairDeviceView: View {
         HStack {
             Spacer()
             if !remoteAccess, !offer.byDevice {
-                Button("Turn On Remote Access", action: actions.turnOn)
+                Button("원격 접속 켜기", action: actions.turnOn)
             }
             switch phase {
             case .waiting, .closed:
-                Button("Cancel", action: actions.close)
+                Button("취소", action: actions.close)
                     .keyboardShortcut(.cancelAction)
             case .paired:
-                Button("Done", action: actions.close)
+                Button("완료", action: actions.close)
                     .keyboardShortcut(.defaultAction)
             case .stopped, .expired:
-                Button("Cancel", action: actions.close)
+                Button("취소", action: actions.close)
                     .keyboardShortcut(.cancelAction)
-                Button("New Code", action: actions.newCode)
+                Button("새 코드", action: actions.newCode)
                     .keyboardShortcut(.defaultAction)
             case .doorDown:
-                Button("Cancel", action: actions.close)
+                Button("취소", action: actions.close)
                     .keyboardShortcut(.cancelAction)
-                Button("Change Port…", action: actions.changePort)
+                Button("포트 변경…", action: actions.changePort)
             }
         }
     }
@@ -372,7 +374,7 @@ final class CableNoticeState {
     var notice: CableNotice?
 }
 
-/// "Paired over the USB Cable" (docs/home-pairing-plan.md §6.3): after a device paired by itself
+/// "USB 케이블로 페어링됨" (docs/home-pairing-plan.md §6.3): after a device paired by itself
 /// over the cable, once per pairing (never per connection). Shown like a window a device opened,
 /// in front without activating Sill or taking the keyboard, and closes by itself after 10 s.
 /// Remove is the Devices pane's Remove, with its keychain rule. VoiceOver announces its first line.
@@ -389,7 +391,7 @@ final class CableNoticeWindowController: NSWindowController, NSWindowDelegate {
         self.model = model
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 160), styleMask: [.titled, .closable],
                               backing: .buffered, defer: true)
-        window.title = "Paired over the USB Cable"
+        window.title = "USB 케이블로 페어링됨"
         window.isReleasedWhenClosed = false
         window.collectionBehavior.insert([.moveToActiveSpace, .fullScreenAuxiliary])
         super.init(window: window)
@@ -453,36 +455,36 @@ struct CableNoticeView: View {
 
     static let showsFor: Duration = .seconds(10)
 
-    static func firstLine(_ name: String) -> String { "\(name) is paired with this Mac." }
+    static func firstLine(_ name: String) -> String { "\(name) 기기가 이 Mac과 페어링되어 있습니다." }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if removed {
-                Label("\(name) can no longer connect.", systemImage: "minus.circle.fill")
+                Label("\(name) 기기의 연결 권한을 해제했습니다.", systemImage: "minus.circle.fill")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Plugged in, it pairs again by itself when it asks. Unplug it to keep it out.")
+                Text("케이블이 연결되어 있으면 기기가 요청할 때 자동으로 다시 페어링됩니다. 연결을 차단하려면 케이블을 분리하세요.")
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Label(Self.firstLine(name), systemImage: "checkmark.circle.fill")
                     .font(.headline)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("It paired by itself over the USB cable, and can connect over Wi\u{2011}Fi and nearby from now on too.")
+                Text("USB 케이블로 자동 페어링했습니다. 이제 Wi‑Fi나 직접 무선 연결로도 접속할 수 있습니다.")
                     .fixedSize(horizontal: false, vertical: true)
                 if let removeProblem {
-                    Warning("\(name) is still paired: Sill couldn’t update the keychain (\(withoutFullStop(removeProblem))). Try again.")
+                    Warning("\(name) 기기가 아직 페어링되어 있습니다. 키체인을 갱신할 수 없습니다(\(withoutFullStop(removeProblem))). 다시 시도하세요.")
                 }
             }
             HStack {
                 Spacer()
                 if !removed {
-                    Button("Remove") {
+                    Button("제거") {
                         // Said only once the keychain kept it, as in the Devices pane.
                         if let reason = actions.remove() { removeProblem = reason } else { removed = true; removeProblem = nil }
                         clicks += 1
                     }
                 }
-                Button("OK", action: actions.close)
+                Button("확인", action: actions.close)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -523,7 +525,7 @@ struct QRCodeView: View {
                     .frame(width: side, height: side, alignment: .topLeading)
                     .background(Color.white)
                     .accessibilityElement()
-                    .accessibilityLabel("Pairing code image")
+                    .accessibilityLabel("페어링 코드 이미지")
                     .accessibilityAddTraits(.isImage)
             }
         }

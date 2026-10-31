@@ -239,7 +239,7 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
     private func failed(_ key: AudioKey, _ why: String) {
         phase = .ended
         print("Audio: could not capture \(Self.said(key)): \(why). The picture is unaffected.")
-        sourceStatus = Status(source: Self.shown(key), capturing: false, problem: "couldn’t capture \(Self.soundOf(key)): \(why)")
+        sourceStatus = Status(source: Self.shown(key), capturing: false, problem: "\(Self.soundOf(key))을 캡처하지 못했습니다: \(why)")
     }
 
     /// The source ended by itself (the permission revoked, the system stopping the stream).
@@ -249,7 +249,7 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
         phase = .ended
         source = nil
         print("Audio capture ended: \(why). The picture is unaffected.")
-        sourceStatus = Status(source: Self.shown(current), capturing: false, problem: "couldn’t capture \(Self.soundOf(current)): \(why)")
+        sourceStatus = Status(source: Self.shown(current), capturing: false, problem: "\(Self.soundOf(current))을 캡처하지 못했습니다: \(why)")
         generation += 1
         let next = generation
         queue.async { self.live = next; self.packetizer = nil; self.encoder = nil }
@@ -268,8 +268,8 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
     static func shown(_ key: AudioKey) -> String {
         switch key {
         case .app(_, let name): return name
-        case .desktop: return "Whole Mac"
-        case .test: return "Test Tone"
+        case .desktop: return "Mac 전체"
+        case .test: return "테스트 음원"
         case .none: return ""
         }
     }
@@ -287,10 +287,10 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
     /// The Mac's and the device's words: "the sound of Safari", "the sound of the whole Mac".
     static func soundOf(_ key: AudioKey) -> String {
         switch key {
-        case .app(_, let name): return "the sound of \(name)"
-        case .desktop: return "the sound of the whole Mac"
-        case .test: return "the test tone"
-        case .none: return "no sound"
+        case .app(_, let name): return "\(name)의 소리"
+        case .desktop: return "Mac 전체의 소리"
+        case .test: return "테스트 음원"
+        case .none: return "소리 없음"
         }
     }
 
@@ -370,7 +370,7 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
 
     @MainActor
     private func encoderProblem(_ why: String) {
-        let problem = "couldn’t encode the sound: AAC-ELD is unavailable (\(why))"
+        let problem = "소리를 인코딩하지 못했습니다. AAC-ELD를 사용할 수 없습니다 (\(why))"
         encoderGone = problem
         guard var s = sourceStatus else { return }
         s.capturing = false
@@ -382,7 +382,7 @@ final class AudioPipeline: @unchecked Sendable {   // main-actor state, and stat
     private func formatProblem(_ why: String) {
         guard var s = sourceStatus else { return }
         s.capturing = false
-        s.problem = "couldn’t use the sound: \(why)"
+        s.problem = "소리를 처리하지 못했습니다: \(why)"
         sourceStatus = s
     }
 }

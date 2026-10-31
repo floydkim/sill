@@ -83,8 +83,8 @@ check("LAN and the internet switch, no VPN: still this network's address",
 var down = input; down.services[4].ipv4 = []; down.services[4].ipv6 = [V6(address: "fe80::dc68:1", flags: 0)]; down.magicDNS = [:]
 check("Tailscale down: this network's address", choose(AddressList.build(down), lan: lan) == C(primary: "10.128.0.34", secondary: nil))
 // Nothing at all.
-check("nothing: “this Mac’s address”", choose([], lan: nil) == C(primary: "this Mac’s address", secondary: nil))
-check("nothing on port 7456: still the placeholder, no port", choose([], lan: nil, port: 7456) == C(primary: "this Mac’s address", secondary: nil))
+check("nothing: “this Mac’s address”", choose([], lan: nil) == C(primary: "이 Mac의 주소", secondary: nil))
+check("nothing on port 7456: still the placeholder, no port", choose([], lan: nil, port: 7456) == C(primary: "이 Mac의 주소", secondary: nil))
 
 // MARK: Several VPNs
 var more = noah
@@ -248,7 +248,7 @@ func before(_ addresses: [MacAddress], lan: String?, port: Int) -> String {
     let host = lan
         ?? addresses.first { $0.kind == MacAddress.vpn }?.host
         ?? addresses.first?.host
-        ?? "this Mac’s address"
+        ?? "이 Mac의 주소"
     guard case .success(var parsed) = AddressParser.parse(host) else { return host }
     if port != D { parsed.port = port }
     return parsed.text
@@ -316,7 +316,7 @@ for _ in 0..<5_000 {
             if c.primary != other || c.secondary != nil { fail("P3 no LAN address: another VPN's first IPv4, else IPv6, alone") }
         } else {
             // No VPN to show and no LAN address: the first address listed with its own port, else the placeholder.
-            let expected = list.first.map { typed($0.host, own: $0.port, port: port) } ?? "this Mac’s address"
+            let expected = list.first.map { typed($0.host, own: $0.port, port: port) } ?? "이 Mac의 주소"
             if c.primary != expected || c.secondary != nil { fail("P5 no VPN to show, no LAN: first address, placeholder (\(expected))") }
         }
         // With no VPN entry at all, exactly what the window showed before, but for an address's

@@ -288,12 +288,12 @@ for v: R.Verdict in [.blocksAll, .allows, .off, .unknown("x"), .blocks(executabl
     same(R.Copy.command(v), nil, "no command for \(v)")
 }
 same(R.Copy.paneLine(onlyExe).map { $0 + " " + R.Copy.command(onlyExe)! },
-     "The macOS firewall blocks Sill’s executable, so devices on the network cannot connect. In Terminal: sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Sill.app/Contents/MacOS/Sill",
+     "macOS 방화벽이 Sill 실행 파일을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요: sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Applications/Sill.app/Contents/MacOS/Sill",
      "the pane's line and its command, as the task words it")
-same(R.Copy.paneLine(onlyApp), "The macOS firewall blocks Sill.app, so devices on the network cannot connect. In Terminal:", "the bundle's line")
+same(R.Copy.paneLine(onlyApp), "macOS 방화벽이 Sill.app을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요:", "the bundle's line")
 same(R.Copy.paneLine(.blocks(executable: nil, bundle: "/Users/me/Sill 2.app")),
-     "The macOS firewall blocks Sill 2.app, so devices on the network cannot connect. In Terminal:", "a copy by its own name")
-same(R.Copy.paneLine(both), "The macOS firewall blocks Sill.app and its executable, so devices on the network cannot connect. In Terminal:",
+     "macOS 방화벽이 Sill 2.app을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요:", "a copy by its own name")
+same(R.Copy.paneLine(both), "macOS 방화벽이 Sill.app 및 실행 파일을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요:",
      "both")
 // The command as Settings › General shows it: the tool, then each option on a line of its own after
 // the shell's continuation, never "--" over "unblockapp".
@@ -305,16 +305,16 @@ for v: R.Verdict in [.blocksAll, .allows, .off, .unknown("x"), .blocks(executabl
     same(R.Copy.commandLines(v), nil, "no lines for \(v)")
 }
 same(R.Copy.paneLine(.blocksAll),
-     "The macOS firewall blocks all incoming connections, so devices on the network cannot connect. Turn off Block all incoming connections in System Settings › Network › Firewall › Options.",
+     "macOS 방화벽이 들어오는 모든 연결을 차단해 네트워크의 기기가 연결할 수 없습니다. 시스템 설정 › 네트워크 › 방화벽 › 옵션에서 ‘들어오는 모든 연결 차단’을 끄세요.",
      "block all")
 for v: R.Verdict in [.allows, .off, .unknown("x")] {
     same(R.Copy.paneLine(v), nil, "no line for \(v)")
     same(R.Copy.menuSubtitle(v), nil, "no menu item for \(v)")
 }
-same(R.Copy.menuSubtitle(onlyExe), "The macOS firewall blocks Sill’s executable.", "the menu's subtitle")
-same(R.Copy.menuSubtitle(onlyApp), "The macOS firewall blocks Sill.app.", "the menu's, the bundle")
-same(R.Copy.menuSubtitle(both), "The macOS firewall blocks Sill.app and its executable.", "the menu's, both")
-same(R.Copy.menuSubtitle(.blocksAll), "The macOS firewall blocks all incoming connections.", "the menu's, block all")
+same(R.Copy.menuSubtitle(onlyExe), "macOS 방화벽이 Sill 실행 파일을 차단하고 있습니다.", "the menu's subtitle")
+same(R.Copy.menuSubtitle(onlyApp), "macOS 방화벽이 Sill.app을 차단하고 있습니다.", "the menu's, the bundle")
+same(R.Copy.menuSubtitle(both), "macOS 방화벽이 Sill.app 및 실행 파일을 차단하고 있습니다.", "the menu's, both")
+same(R.Copy.menuSubtitle(.blocksAll), "macOS 방화벽이 들어오는 모든 연결을 차단하고 있습니다.", "the menu's, block all")
 for v: R.Verdict in [onlyExe, onlyApp, both, .blocksAll] {
     let words = [R.Copy.paneLine(v), R.Copy.menuSubtitle(v), R.Copy.command(v), R.Copy.logLine(from: nil, to: v)].compactMap { $0 }
     check(!words.joined().contains("'s"), "a typographic apostrophe in \(v)'s words")
@@ -326,21 +326,21 @@ for v: R.Verdict in [onlyExe, onlyApp, both, .blocksAll] {
 }
 
 // The log's lines: one when the verdict changes, none for a first one that blocks nothing.
-let blockedLine = "Firewall: the macOS firewall blocks Sill’s executable, so devices on the network cannot connect. In Terminal: sudo \(tool) --unblockapp \(exe)"
+let blockedLine = "Firewall: macOS 방화벽이 Sill 실행 파일을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요: sudo \(tool) --unblockapp \(exe)"
 let noLonger = "Firewall: the macOS firewall no longer blocks devices from connecting to Sill."
 same(R.Copy.logLine(from: nil, to: .allows), nil, "first: allowed, nothing printed")
 same(R.Copy.logLine(from: nil, to: .off), nil, "first: off, nothing printed")
 same(R.Copy.logLine(from: nil, to: onlyExe), blockedLine, "first: blocked")
 same(R.Copy.logLine(from: .allows, to: onlyExe), blockedLine, "blocked from allowed")
 same(R.Copy.logLine(from: onlyExe, to: onlyExe), nil, "the same again, nothing")
-same(R.Copy.logLine(from: onlyExe, to: both), "Firewall: the macOS firewall blocks Sill.app and its executable, so devices on the network cannot connect. In Terminal: sudo \(tool) --unblockapp \(exe) --unblockapp \(app)",
+same(R.Copy.logLine(from: onlyExe, to: both), "Firewall: macOS 방화벽이 Sill.app 및 실행 파일을 차단해 네트워크의 기기가 연결할 수 없습니다. 터미널에서 다음 명령을 실행하세요: sudo \(tool) --unblockapp \(exe) --unblockapp \(app)",
      "more blocked: the new line")
 same(R.Copy.logLine(from: onlyExe, to: .allows), noLonger, "unblocked")
 same(R.Copy.logLine(from: .blocksAll, to: .off), noLonger, "block all, then off")
 same(R.Copy.logLine(from: .allows, to: .off), nil, "allowed, then off")
 same(R.Copy.logLine(from: .off, to: .allows), nil, "off, then on and allowed")
 same(R.Copy.logLine(from: .allows, to: .blocksAll),
-     "Firewall: the macOS firewall blocks all incoming connections, so devices on the network cannot connect. Turn off Block all incoming connections in System Settings › Network › Firewall › Options.",
+     "Firewall: macOS 방화벽이 들어오는 모든 연결을 차단해 네트워크의 기기가 연결할 수 없습니다. 시스템 설정 › 네트워크 › 방화벽 › 옵션에서 ‘들어오는 모든 연결 차단’을 끄세요.",
      "block all")
 same(R.Copy.logLine(from: nil, to: .unknown("socketfilterfw --getglobalstate didn’t answer in 2 s")),
      "Firewall: couldn’t read the macOS firewall’s settings (socketfilterfw --getglobalstate didn’t answer in 2 s), so Sill can’t tell whether it blocks devices.",

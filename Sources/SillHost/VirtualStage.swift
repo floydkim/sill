@@ -72,15 +72,15 @@ final class VirtualStage {
         var summary: String {
             switch self {
             case .disabled(let why): return why
-            case .accessibilityOff: return "needs Accessibility"
-            case .screenRecordingOff: return "needs Screen Recording"
-            case .axWindowNotFound: return "the window wasn’t found through Accessibility"
-            case .displayCreate: return "the display couldn’t be created"
-            case .neverOnline: return "the display never came up"
-            case .notListedBySCK: return "ScreenCaptureKit didn’t list the display"
-            case .moveRefused: return "the app refused the move"
-            case .notOnDisplay: return "the window didn’t move"
-            case .windowMissing: return "the window went away"
+            case .accessibilityOff: return "손쉬운 사용 권한이 필요함"
+            case .screenRecordingOff: return "화면 기록 권한이 필요함"
+            case .axWindowNotFound: return "손쉬운 사용 API로 창을 찾지 못함"
+            case .displayCreate: return "디스플레이를 생성하지 못함"
+            case .neverOnline: return "디스플레이가 활성화되지 않음"
+            case .notListedBySCK: return "ScreenCaptureKit에서 디스플레이를 찾지 못함"
+            case .moveRefused: return "앱에서 창 이동을 거부함"
+            case .notOnDisplay: return "창이 이동하지 않음"
+            case .windowMissing: return "창이 닫힘"
             }
         }
     }
@@ -523,7 +523,7 @@ final class VirtualStage {
                                    refreshHz: Double(refreshHz), vendorID: Self.vendorID, productID: Self.productID, serialNum: Self.serialNum)
         } catch {
             creationFailures += 1
-            if creationFailures >= 2 { disabledReason = "creating the display failed \(creationFailures) times (\(error))" }
+            if creationFailures >= 2 { disabledReason = "디스플레이 생성에 \(creationFailures)회 실패했습니다 (\(error))" }
             throw Failure.displayCreate(error)
         }
         creationFailures = 0

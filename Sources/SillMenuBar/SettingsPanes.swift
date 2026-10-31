@@ -97,13 +97,13 @@ private struct GeneralPane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Launch at login", isOn: Binding(get: { model.loginItem.isOn }, set: { model.loginItem.set($0) }))
+                Toggle("로그인 시 실행", isOn: Binding(get: { model.loginItem.isOn }, set: { model.loginItem.set($0) }))
                     .disabled(!model.loginItem.available)
                 if !model.loginItem.available {
-                    Footnote("Available when Sill runs from its app bundle.")
+                    Footnote("Sill 앱으로 실행할 때 사용할 수 있습니다.")
                 } else if model.loginItem.needsApproval {
-                    LabeledContent("Waiting for your approval") {
-                        Button("Approve in System Settings…") { model.loginItem.openSystemSettings() }
+                    LabeledContent("승인 대기 중") {
+                        Button("시스템 설정에서 승인…") { model.loginItem.openSystemSettings() }
                     }
                 }
                 if let error = model.loginItem.error {
@@ -111,26 +111,26 @@ private struct GeneralPane: View {
                 }
             }
             Section {
-                LabeledContent("Running from") {
+                LabeledContent("실행 경로") {
                     Text(Bundle.main.bundlePath)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .textSelection(.enabled)
                 }
                 if !Self.runsFromApplications {
-                    Label("The login item and the permissions follow this copy of Sill. Keep one copy, in Applications.",
+                    Label("로그인 항목과 권한은 이 Sill 앱에 적용됩니다. 응용 프로그램 폴더에 앱 하나만 보관하세요.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
             }
             Section {
-                LabeledContent("Visible on your network as") { Text(networkName) }
+                LabeledContent("네트워크에 표시되는 이름") { Text(networkName) }
             } footer: {
                 HStack(spacing: 4) {
-                    Text("This is the Mac’s name.")
+                    Text("이 Mac의 이름입니다.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Button("Change It in Sharing Settings…") {
+                    Button("공유 설정에서 변경…") {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.Sharing-Settings.extension") {
                             NSWorkspace.shared.open(url)
                         }
@@ -149,21 +149,21 @@ private struct GeneralPane: View {
             // restarting the stream (the listener is replaced); enabled in test pattern mode too,
             // where it is saved and changes only the listener.
             Section {
-                Toggle("Direct wireless connection", isOn: $settings.config.directWireless)
+                Toggle("직접 무선 연결", isOn: $settings.config.directWireless)
             } footer: {
-                Footnote("Lets your iPhone and iPad connect when they’re near this Mac, even without a shared Wi\u{2011}Fi network, the way AirDrop does. While it’s on, this Mac’s Wi\u{2011}Fi keeps stepping away from your network, so streaming over Wi\u{2011}Fi can stutter. Anyone nearby with Sill can find this Mac; only devices you paired can connect, unless Require pairing is off.")
+                Footnote("AirDrop처럼 같은 Wi‑Fi에 연결하지 않아도 가까이 있는 iPhone과 iPad에서 이 Mac에 접속할 수 있습니다. 켜 두면 Wi‑Fi가 네트워크 채널을 주기적으로 벗어나 영상이 끊길 수 있습니다. 근처의 Sill 사용자에게 이 Mac이 표시되며, ‘페어링 필수’를 끄지 않은 한 페어링한 기기만 연결할 수 있습니다.")
             }
             // The clipboard both ways (HostClipboard): at once, no restart. Each device has its own
             // switch too. macOS's answer is read with the permissions (once a second while this pane
             // shows, and when Sill becomes active), never in a preview.
             Section {
-                Toggle("Hide this Mac’s screens during remote use", isOn: $settings.config.hideLocalScreen)
+                Toggle("원격 사용 중 이 Mac의 화면 가리기", isOn: $settings.config.hideLocalScreen)
                     .disabled(model.synthetic)
                 if let problem = model.coordinator?.status.snapshot.privacyCurtainProblem {
                     Warning(problem)
                 }
             } footer: {
-                Footnote("Covers physical monitors while a device is connected. The last disconnection or turning this off locks the Mac before removing the cover. Control–Option–Command–B reveals the screens for the current session. The pointer may remain visible. Force quitting Sill removes the cover.")
+                Footnote("기기가 연결된 동안 물리 모니터를 가립니다. 마지막 연결이 끊기거나 이 설정을 끄면 Mac을 잠근 뒤 가림막을 제거합니다. Control–Option–Command–B를 누르면 현재 연결 동안 화면을 표시합니다. 포인터는 보일 수 있으며, Sill을 강제 종료하면 가림막이 사라집니다.")
             }
             ClipboardSection(shareClipboard: $settings.config.shareClipboard,
                              access: previewClipboardAccess ?? model.permissions.clipboardAccess,
@@ -177,8 +177,8 @@ private struct GeneralPane: View {
             }
             Section {
                 HStack {
-                    Button("Show Log…") { model.showLog?() }
-                    Button("Reveal Log File") {
+                    Button("로그 보기…") { model.showLog?() }
+                    Button("로그 파일 보기") {
                         if let url = HostLog.shared.fileURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
                     }
                     .disabled(HostLog.shared.fileURL == nil)
@@ -186,9 +186,9 @@ private struct GeneralPane: View {
             }
             Section {
                 // A way out when the status item is hidden (a crowded menu bar, the notch).
-                Button("Quit Sill") { NSApp.terminate(nil) }
+                Button("Sill 종료") { NSApp.terminate(nil) }
             } footer: {
-                Footnote("Sill \(AppModel.version) (\(AppModel.build)). Free and open source.")
+                Footnote("Sill \(AppModel.version) (\(AppModel.build)). 무료 오픈 소스 소프트웨어입니다.")
             }
         }
     }
@@ -197,10 +197,10 @@ private struct GeneralPane: View {
         let snapshot = model.coordinator?.status.snapshot ?? HostStatusSnapshot()
         switch snapshot.network {
         case .advertising(let name): return "“\(name)”"
-        case .notAdvertised: return "Not advertised (test pattern mode)"
-        case .failed: return "Not visible (the listener failed)"
-        case .waiting: return "Not yet (waiting for the network)"
-        case .starting, .registering: return "Registering…"
+        case .notAdvertised: return "네트워크에 표시하지 않음(테스트 패턴 모드)"
+        case .failed: return "표시할 수 없음(연결 수신 실패)"
+        case .waiting: return "네트워크 연결 대기 중"
+        case .starting, .registering: return "등록 중…"
         }
     }
 }
@@ -225,12 +225,12 @@ struct FirewallSection: View {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)
                         if let command {
-                            Button(copied ? "Copied" : "Copy") { copy(command) }
-                                .help("Copies the command, to paste into Terminal")
+                            Button(copied ? "복사됨" : "복사") { copy(command) }
+                                .help("터미널에 붙여넣을 명령어 복사")
                         }
                     }
                 } label: {
-                    Text("Firewall")
+                    Text("방화벽")
                     Text(line)
                 }
                 if let lines = FirewallRule.Copy.commandLines(verdict) {
@@ -245,12 +245,12 @@ struct FirewallSection: View {
         }
     }
 
-    /// The command onto the clipboard, and "Copied" on the button for 2 s (VoiceOver hears it).
+    /// The command onto the clipboard, and "복사됨" on the button for 2 s (VoiceOver hears it).
     private func copy(_ command: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(command, forType: .string)
         copied = true
-        AccessibilityNotification.Announcement("Copied").post()
+        AccessibilityNotification.Announcement("복사됨").post()
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(2))
             copied = false
@@ -269,23 +269,41 @@ struct ClipboardSection: View {
     let access: ClipboardPolicy.MacAccess
     var allow: () -> Void = {}
 
+    private var accessWarning: String? {
+        switch access {
+        case .allowed: return nil
+        case .notAsked, .asks: return "macOS가 Sill의 클립보드 읽기 전에 승인을 요구하므로, 이 Mac에서 복사한 내용이 다른 기기로 전송되지 않습니다."
+        case .denied: return "macOS가 Sill의 클립보드 읽기를 허용하지 않아, 이 Mac에서 복사한 내용이 다른 기기로 전송되지 않습니다."
+        }
+    }
+
+    private var accessHint: String? {
+        switch access {
+        case .allowed: return nil
+        case .notAsked:
+            return "‘시스템 설정에서 허용’을 누르면 macOS에서 Sill의 접근을 한 번 묻습니다. 이어서 열리는 개인정보 보호 및 보안의 ‘다른 앱에서 붙여넣기’에서 Sill을 허용으로 설정하세요. 기기에서 ‘붙여넣기’로 보낸 텍스트는 계속 받을 수 있습니다."
+        case .asks, .denied:
+            return "개인정보 보호 및 보안의 ‘다른 앱에서 붙여넣기’에서 Sill을 허용으로 설정하세요. 기기에서 ‘붙여넣기’로 보낸 텍스트는 계속 받을 수 있습니다."
+        }
+    }
+
     var body: some View {
         Section {
-            Toggle("Share clipboard with devices", isOn: $shareClipboard)
-            if shareClipboard, let warning = ClipboardPolicy.Copy.macAccessWarning(access) {
+            Toggle("기기와 클립보드 공유", isOn: $shareClipboard)
+            if shareClipboard, let warning = accessWarning {
                 VStack(alignment: .leading, spacing: 6) {
                     Warning(warning)
-                    if let hint = ClipboardPolicy.Copy.macAccessHint(access) {
+                    if let hint = accessHint {
                         Text(hint)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Button(ClipboardPolicy.Copy.macAccessButton, action: allow)
+                    Button("시스템 설정에서 허용…", action: allow)
                 }
             }
         } footer: {
-            Footnote(ClipboardPolicy.Copy.macFootnote)
+            Footnote("이 Mac에서 복사한 텍스트를 연결된 iPhone이나 iPad에 붙여넣을 수 있습니다. 기기에서 ‘붙여넣기’로 보낸 텍스트는 이 Mac의 클립보드에 저장됩니다.")
         }
     }
 }
@@ -307,13 +325,13 @@ struct UpdatesSection: View {
 
     var body: some View {
         Section {
-            Toggle("Check for updates automatically", isOn: $automatic)
+            Toggle("자동으로 업데이트 확인", isOn: $automatic)
             LabeledContent {
                 HStack(spacing: 8) {
                     if let url = pane.releasePage {
-                        Button("Open Release Page…") { actions.openRelease(url) }
+                        Button("릴리즈 페이지 열기…") { actions.openRelease(url) }
                     }
-                    Button("Check Now") { actions.checkNow() }
+                    Button("지금 확인") { actions.checkNow() }
                         .disabled(!pane.canCheck)
                 }
             } label: {
@@ -340,64 +358,64 @@ private struct StreamingPane: View {
     var body: some View {
         Form {
             Section {
-                Picker("Frame rate limit", selection: $settings.config.maxFPS) {
+                Picker("최대 프레임률", selection: $settings.config.maxFPS) {
                     Text("60 fps").tag(60)
                     Text("120 fps").tag(120)
                 }
                 .pickerStyle(.segmented)
-                Picker("Quality", selection: $settings.config.bitrate) {
-                    ForEach(QualityPreset.allCases) { Text($0.title).tag($0.rawValue) }
+                Picker("영상 품질", selection: $settings.config.bitrate) {
+                    ForEach(QualityPreset.allCases) { Text($0.koreanTitle).tag($0.rawValue) }
                     if QualityPreset(rawValue: settings.config.bitrate) == nil {
-                        Text(QualityPreset.title(forBitrate: settings.config.bitrate)).tag(settings.config.bitrate)
+                        Text(QualityPreset.koreanTitle(forBitrate: settings.config.bitrate)).tag(settings.config.bitrate)
                     }
                 }
-                Picker("Resolution", selection: $settings.config.captureScale) {
-                    Text("Retina").tag(CGFloat(2))
-                    Text("Standard").tag(CGFloat(1))
+                Picker("해상도", selection: $settings.config.captureScale) {
+                    Text("레티나").tag(CGFloat(2))
+                    Text("표준").tag(CGFloat(1))
                 }
             } footer: {
-                Footnote("Each device asks for its own screen’s rate, up to this limit. Quality is per 60 fps; a 120 fps stream gets twice as much. \(QualityPreset.fastLinkNote) Changes apply at once: the current stream restarts for a moment.")
+                Footnote("각 기기의 화면 주사율에 맞춰 이 한도까지 전송합니다. 영상 품질은 60 fps 기준이며, 120 fps에서는 비트레이트가 두 배입니다. \(QualityPreset.koreanFastLinkNote) 변경 즉시 적용되며 영상이 잠시 다시 시작됩니다.")
             }
             // Away from home (docs/remote-bundle-plan.md §5): its own quality, which a device away
             // sets too; the menu's Quality and Resolution stay the home ones.
             Section {
-                Picker("Quality", selection: $settings.config.awayBitrate) {
-                    ForEach(QualityPreset.allCases) { Text($0.title).tag($0.rawValue) }
+                Picker("영상 품질", selection: $settings.config.awayBitrate) {
+                    ForEach(QualityPreset.allCases) { Text($0.koreanTitle).tag($0.rawValue) }
                     if QualityPreset(rawValue: settings.config.awayBitrate) == nil {
-                        Text(QualityPreset.title(forBitrate: settings.config.awayBitrate)).tag(settings.config.awayBitrate)
+                        Text(QualityPreset.koreanTitle(forBitrate: settings.config.awayBitrate)).tag(settings.config.awayBitrate)
                     }
                 }
-                Picker("Resolution", selection: $settings.config.awayCaptureScale) {
-                    Text("Retina").tag(CGFloat(2))
-                    Text("Standard").tag(CGFloat(1))
+                Picker("해상도", selection: $settings.config.awayCaptureScale) {
+                    Text("레티나").tag(CGFloat(2))
+                    Text("표준").tag(CGFloat(1))
                 }
             } header: {
-                Text("Away from home")
+                Text("외부 네트워크")
             } footer: {
-                Footnote("Sill streams at these while every connected device is away from home, through a VPN or over the internet, so a slow connection never starts at your home quality. A device away from home changes these, and never your Quality and Resolution above."
-                         + (model.coordinator?.status.snapshot.away == true ? " Streaming at these now." : ""))
+                Footnote("연결된 모든 기기가 VPN이나 인터넷을 통해 외부에서 접속하면 이 설정으로 전송합니다. 느린 연결에서 내부 네트워크용 고화질로 시작하는 것을 방지합니다. 외부 기기에서 품질을 바꾸면 이 설정에만 적용되며 위의 영상 품질과 해상도는 바뀌지 않습니다."
+                         + (model.coordinator?.status.snapshot.away == true ? " 현재 이 설정으로 전송 중입니다." : ""))
             }
             Section {
-                Toggle("Prioritize encoding speed", isOn: $settings.config.prioritizeSpeed)
+                Toggle("인코딩 속도 우선", isOn: $settings.config.prioritizeSpeed)
             } footer: {
-                Footnote("Lower latency when the Mac is busy, at a softer picture.")
+                Footnote("Mac에 부하가 높을 때 화질을 낮춰 지연을 줄입니다.")
             }
             // The Mac's sound (docs/audio-plan.md §6), a beta: its switch and its footnote say so. A device's
             // Settings panel turns it on and off too, for every device, and mutes it for that device alone
             // (Q8 as Noah revised it on 2026-10-27).
             Section {
-                Toggle("Send audio (beta)", isOn: $settings.config.sendAudio)
+                Toggle("오디오 전송(베타)", isOn: $settings.config.sendAudio)
                 if settings.config.sendAudio, let problem = model.coordinator?.status.snapshot.audio?.problem {
-                    Warning("Sill \(problem). The picture is unaffected.")
+                    Warning("Sill 오디오 전송 문제: \(problem). 영상에는 영향이 없습니다.")
                 }
             } footer: {
-                Footnote("Beta. Devices play the sound of what you stream: all of the streamed window’s app, or every app for the Desktop. The Mac keeps playing it too. A connected iPhone or iPad can also turn this on or off from Sill’s settings there, and mute it for itself alone. Nothing is recorded.")
+                Footnote("베타 기능입니다. 선택한 윈도우가 속한 앱의 소리를 전송하며, 데스크탑을 선택하면 모든 앱의 소리를 전송합니다. Mac에서도 소리가 계속 재생됩니다. 연결된 iPhone이나 iPad의 Sill 설정에서도 켜고 끌 수 있으며, 해당 기기에서만 음소거할 수도 있습니다. 소리는 녹음하지 않습니다.")
             }
             if let snapshot = model.coordinator?.status.snapshot, snapshot.softwareEncoder {
                 Section {
                     Label(snapshot.hardwareEncoderStuck
-                          ? "The hardware encoder is stuck, so streams use the software encoder: up to 60 fps at Standard resolution. Restarting the Mac fixes this."
-                          : "The hardware encoder is busy or not answering, so streams use the software encoder: up to 60 fps at Standard resolution. Sill switches back by itself once it keeps up again.",
+                          ? "하드웨어 인코더가 응답하지 않아 소프트웨어 인코더를 사용합니다. 표준 해상도에서 최대 60 fps로 전송합니다. Mac을 재시동하면 복구됩니다."
+                          : "하드웨어 인코더가 사용 중이거나 응답하지 않아 소프트웨어 인코더를 사용합니다. 표준 해상도에서 최대 60 fps로 전송하며, 복구되면 자동으로 하드웨어 인코더로 전환합니다.",
                           systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
@@ -417,17 +435,17 @@ private struct VirtualDisplayPane: View {
         let snapshot = model.coordinator?.status.snapshot ?? HostStatusSnapshot()
         Form {
             Section {
-                Toggle("Stream from a virtual display", isOn: $settings.config.virtualDisplay)
+                Toggle("가상 디스플레이에서 전송", isOn: $settings.config.virtualDisplay)
             } footer: {
-                Footnote("Sill moves the window you pick onto an invisible display made for your device, so it keeps updating when other windows cover it and text is drawn at your device’s scale. The window leaves this screen while it streams and comes back when you stop streaming or quit Sill.")
+                Footnote("선택한 윈도우를 기기 전용 가상 디스플레이로 이동합니다. 다른 윈도우에 가려져도 계속 갱신되며, 기기의 배율에 맞춰 텍스트를 그립니다. 전송 중에는 윈도우가 이 화면에서 사라지고, 전송을 중단하거나 Sill을 종료하면 돌아옵니다.")
             }
             Section {
-                LabeledContent("Status") {
+                LabeledContent("상태") {
                     HStack(spacing: 8) {
                         Text(statusText(snapshot))
                             .multilineTextAlignment(.trailing)
                         if canRetry(snapshot) {
-                            Button("Try Again") {
+                            Button("다시 시도") {
                                 retrying = true
                                 Task { @MainActor in
                                     await model.coordinator?.retryVirtualDisplay()
@@ -439,12 +457,12 @@ private struct VirtualDisplayPane: View {
                     }
                 }
                 if settings.config.virtualDisplay, let failure = snapshot.lastStageFailure {
-                    LabeledContent("Last window") {
-                        Text("Streamed where it is: \(failure)").multilineTextAlignment(.trailing)
+                    LabeledContent("마지막 윈도우") {
+                        Text("원래 위치에서 전송 중: \(failure)").multilineTextAlignment(.trailing)
                     }
                 }
             } footer: {
-                Footnote("Uses a private macOS interface (CGVirtualDisplay). If a macOS update breaks it, Sill streams the window where it is.")
+                Footnote("macOS 비공개 인터페이스(CGVirtualDisplay)를 사용합니다. macOS 업데이트로 작동하지 않으면 윈도우를 원래 위치에서 전송합니다.")
             }
         }
     }
@@ -452,13 +470,13 @@ private struct VirtualDisplayPane: View {
     private func statusText(_ s: HostStatusSnapshot) -> String {
         let sr = model.permissions.screenRecording, ax = model.permissions.accessibility
         if s.virtualDisplayAPIMissing, let problem = s.virtualDisplayProblem {
-            return "Not available on this version of macOS: \(problem)"
+            return "이 macOS 버전에서 사용할 수 없음: \(problem)"
         }
-        if !sr && !ax { return "Needs Screen Recording and Accessibility" }
-        if !ax { return "Needs Accessibility" }
-        if !sr { return "Needs Screen Recording" }
-        if let problem = s.virtualDisplayProblem { return "Off for this session: \(problem)" }
-        return "Available"
+        if !sr && !ax { return "화면 기록 및 손쉬운 사용 권한 필요" }
+        if !ax { return "손쉬운 사용 권한 필요" }
+        if !sr { return "화면 기록 권한 필요" }
+        if let problem = s.virtualDisplayProblem { return "이번 실행에서 사용 중지됨: \(problem)" }
+        return "사용 가능"
     }
 
     /// A run-level disable (the system removed the display too often) can be retried; a missing
@@ -478,40 +496,40 @@ private struct PermissionsPane: View {
         let network = model.coordinator?.status.snapshot.network
         Form {
             Section {
-                PermissionRow(title: "Screen Recording", allowed: permissions.screenRecording,
+                PermissionRow(title: "화면 기록", allowed: permissions.screenRecording,
                               // Not "on this network": a device connected over Direct Wireless shares none.
-                              explanation: "Lets Sill capture the windows you pick on your iPhone or iPad, and their sound when Send Audio is on. Nothing is recorded or saved; frames and sound go straight to your devices.",
-                              button: model.settings.askedScreenRecording ? "Open System Settings…" : "Allow…") {
+                              explanation: "iPhone이나 iPad에서 선택한 윈도우와 오디오 전송을 켰을 때의 소리를 캡처합니다. 영상과 소리는 기록하거나 저장하지 않고 기기로 바로 전송합니다.",
+                              button: model.settings.askedScreenRecording ? "시스템 설정 열기…" : "허용…") {
                     permissions.requestScreenRecording()
                 }
-                PermissionRow(title: "Accessibility", allowed: permissions.accessibility,
-                              explanation: "Lets your iPhone or iPad click, scroll and type on this Mac, and lets Sill move and size the window it streams.",
-                              button: model.settings.askedAccessibility ? "Open System Settings…" : "Allow…") {
+                PermissionRow(title: "손쉬운 사용", allowed: permissions.accessibility,
+                              explanation: "iPhone이나 iPad에서 이 Mac을 클릭하고 스크롤하며 입력할 수 있게 합니다. Sill이 전송할 윈도우의 위치와 크기를 조정하는 데도 필요합니다.",
+                              button: model.settings.askedAccessibility ? "시스템 설정 열기…" : "허용…") {
                     permissions.requestAccessibility()
                 }
             } footer: {
-                Footnote("Access belongs to Sill itself. Access you gave Terminal for the SillHost command-line tool doesn’t carry over.")
+                Footnote("Sill 앱 자체에 권한을 허용해야 합니다. SillHost 명령줄 도구를 위해 터미널에 허용한 권한은 이 앱에 적용되지 않습니다.")
             }
             if permissions.relaunchSuggested, !permissions.screenRecording {
                 Section {
-                    LabeledContent("Screen Recording starts working once Sill opens again.") {
-                        Button(permissions.canRelaunch ? "Relaunch Sill" : "Quit Sill") { permissions.relaunch() }
+                    LabeledContent("Sill을 다시 실행하면 화면 기록 권한이 적용됩니다.") {
+                        Button(permissions.canRelaunch ? "Sill 다시 실행" : "Sill 종료") { permissions.relaunch() }
                     }
                 }
             }
             if Self.networkNeedsHelp(network) {
                 Section {
                     LabeledContent {
-                        Button("Open Local Network…") { permissions.openPrivacyPane("Privacy_LocalNetwork") }
+                        Button("로컬 네트워크 설정 열기…") { permissions.openPrivacyPane("Privacy_LocalNetwork") }
                     } label: {
-                        Text("Local Network")
-                        Text("If your iPhone or iPad can’t find this Mac, allow Sill in Privacy & Security › Local Network.")
+                        Text("로컬 네트워크")
+                        Text("iPhone이나 iPad에서 이 Mac을 찾을 수 없다면 개인정보 보호 및 보안 › 로컬 네트워크에서 Sill을 허용하세요.")
                     }
                 }
             }
             if permissions.allGranted {
                 Section {
-                    Label("You’re all set. Open Sill on your iPhone or iPad.", systemImage: "checkmark.seal.fill")
+                    Label("준비가 끝났습니다. iPhone이나 iPad에서 Sill을 여세요.", systemImage: "checkmark.seal.fill")
                 }
             }
         }
@@ -535,7 +553,7 @@ private struct PermissionRow: View {
     var body: some View {
         LabeledContent {
             if allowed {
-                Label("Allowed", systemImage: "checkmark.circle.fill")
+                Label("허용됨", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
                 HStack(spacing: 6) {

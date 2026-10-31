@@ -9,36 +9,36 @@ enum MainMenu {
         let main = NSMenu()
 
         let sill = submenu(in: main, title: "Sill")
-        sill.addItem(withTitle: "About Sill", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        sill.addItem(withTitle: "Sill 정보", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         sill.addItem(.separator())
-        sill.addItem(withTitle: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ",")
+        sill.addItem(withTitle: "설정…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ",")
         sill.addItem(.separator())
-        sill.addItem(withTitle: "Quit Sill", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        sill.addItem(withTitle: "Sill 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
-        let edit = submenu(in: main, title: "Edit")
-        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        let edit = submenu(in: main, title: "편집")
+        edit.addItem(withTitle: "실행 취소", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "다시 실행", action: Selector(("redo:")), keyEquivalent: "Z")
         edit.addItem(.separator())
-        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: "오려두기", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "복사", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "붙여넣기", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "모두 선택", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         edit.addItem(.separator())
-        let findItem = edit.addItem(withTitle: "Find", action: nil, keyEquivalent: "")
-        let find = NSMenu(title: "Find")
+        let findItem = edit.addItem(withTitle: "찾기", action: nil, keyEquivalent: "")
+        let find = NSMenu(title: "찾기")
         // performFindPanelAction: with the NSFindPanelAction tags, which a text view with a find
         // bar (the Log window) answers.
-        let actions: [(String, String, NSFindPanelAction)] = [("Find…", "f", .showFindPanel), ("Find Next", "g", .next),
-                                                              ("Find Previous", "G", .previous)]
+        let actions: [(String, String, NSFindPanelAction)] = [("찾기…", "f", .showFindPanel), ("다음 찾기", "g", .next),
+                                                              ("이전 찾기", "G", .previous)]
         for (title, key, tag) in actions {
             let item = find.addItem(withTitle: title, action: #selector(NSTextView.performFindPanelAction(_:)), keyEquivalent: key)
             item.tag = Int(tag.rawValue)
         }
         findItem.submenu = find
 
-        let window = submenu(in: main, title: "Window")
-        window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
-        window.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        let window = submenu(in: main, title: "윈도우")
+        window.addItem(withTitle: "최소화", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        window.addItem(withTitle: "닫기", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 
         return main
     }

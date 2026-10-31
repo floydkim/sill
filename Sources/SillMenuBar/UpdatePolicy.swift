@@ -224,9 +224,9 @@ enum UpdatePolicy {
     // MARK: Words
 
     /// "Sill 0.4 Is Available…": the status menu's item.
-    static func menuTitle(_ offer: Offer) -> String { "Sill \(offer.version) Is Available…" }
+    static func menuTitle(_ offer: Offer) -> String { "Sill \(offer.version) 업데이트…" }
     /// "You have 0.3; opens its download page".
-    static func menuSubtitle(running: SillVersion) -> String { "You have \(running); opens its download page" }
+    static func menuSubtitle(running: SillVersion) -> String { "현재 버전 \(running) · 다운로드 페이지 열기" }
 
     /// The log's line for an outcome, nil for none (an automatic check that found nothing new).
     /// `running` as written ("0.3.0"); `retryIn` the retry's length, for a check with no answer.
@@ -267,18 +267,18 @@ enum UpdatePolicy {
     /// Settings › General's line after Check Now, and whether it is a failure (shown in orange).
     static func resultLine(_ outcome: Outcome, time: (Date) -> String) -> (text: String, failed: Bool) {
         switch outcome {
-        case .newer(let offer): return ("Sill \(offer.version) is available.", false)
-        case .upToDate: return ("Sill is up to date.", false)
-        case .noRelease: return ("Couldn’t check: GitHub has no release of Sill yet.", true)
+        case .newer(let offer): return ("Sill \(offer.version) 버전을 사용할 수 있습니다.", false)
+        case .upToDate: return ("최신 버전의 Sill을 사용 중입니다.", false)
+        case .noRelease: return ("확인하지 못했습니다. GitHub에 게시된 Sill 릴리즈가 없습니다.", true)
         case .limited(_, let reset):
-            return ("Couldn’t check: GitHub is limiting requests from this network. "
-                    + (reset.map { "Try again after \(time($0))." } ?? "Try again in an hour."), true)
-        case .httpError(let status): return ("Couldn’t check: GitHub answered with an error (HTTP \(status)).", true)
-        case .notARelease: return ("Couldn’t check: GitHub’s answer wasn’t a release Sill understands.", true)
+            return ("확인하지 못했습니다. GitHub에서 이 네트워크의 요청을 제한하고 있습니다. "
+                    + (reset.map { "\(time($0)) 이후에 다시 시도하세요." } ?? "1시간 뒤에 다시 시도하세요."), true)
+        case .httpError(let status): return ("확인하지 못했습니다. GitHub에서 오류를 반환했습니다 (HTTP \(status)).", true)
+        case .notARelease: return ("확인하지 못했습니다. GitHub 응답을 Sill 릴리즈로 인식할 수 없습니다.", true)
         case .noConnection(let code, let description):
-            return (tlsCodes.contains(code) ? "Couldn’t check: \(description)" : "Couldn’t check: this Mac isn’t connected to the internet.", true)
-        case .timeout: return ("Couldn’t check: GitHub didn’t answer within \(Int(requestTimeout)) seconds.", true)
-        case .failed(_, let description): return ("Couldn’t check: \(description)", true)
+            return (tlsCodes.contains(code) ? "확인하지 못했습니다: \(description)" : "확인하지 못했습니다. 이 Mac이 인터넷에 연결되어 있지 않습니다.", true)
+        case .timeout: return ("확인하지 못했습니다. GitHub가 \(Int(requestTimeout))초 안에 응답하지 않았습니다.", true)
+        case .failed(_, let description): return ("확인하지 못했습니다: \(description)", true)
         }
     }
 
@@ -296,9 +296,9 @@ enum UpdatePolicy {
         var resultID = 0
     }
 
-    static let notCheckedLine = "Not checked yet."
-    static let noVersionLine = "This build of Sill has no version number, so it can’t check."
-    static let testPatternLine = "Sill doesn’t check for updates in test pattern mode."
+    static let notCheckedLine = "아직 확인하지 않았습니다."
+    static let noVersionLine = "이 Sill 빌드에 버전 번호가 없어 업데이트를 확인할 수 없습니다."
+    static let testPatternLine = "테스트 패턴 모드에서는 업데이트를 확인하지 않습니다."
 
     /// The pane's line, first match wins: a check running; this run's Check Now result (kept until
     /// GitHub answers an automatic check, UpdateChecker); why Sill cannot check (no version, test
@@ -308,7 +308,7 @@ enum UpdatePolicy {
         let canCheck = hasVersion && !testPatternOnly
         var p = Pane(line: notCheckedLine, releasePage: offer?.url, canCheck: canCheck && !checking, resultID: resultID)
         if checking {
-            p.line = "Checking…"
+            p.line = "확인 중…"
         } else if let result {
             (p.line, p.failed) = resultLine(result, time: time)
         } else if !hasVersion {
@@ -316,13 +316,13 @@ enum UpdatePolicy {
         } else if testPatternOnly {
             p.line = testPatternLine
         } else if let offer {
-            p.line = "Sill \(offer.version) is available."
+            p.line = "Sill \(offer.version) 버전을 사용할 수 있습니다."
         } else if let lastCheck {
-            p.line = "Last checked \(date(lastCheck))."
+            p.line = "마지막 확인: \(date(lastCheck))"
         }
         return p
     }
 
     /// The pane's footer.
-    static let footnote = "Once a day, Sill asks GitHub whether a newer version is out. GitHub sees this Mac’s IP address and which version of Sill it has; nothing else is sent. Sill never downloads or installs anything by itself: a new version opens its page on GitHub, where you download it."
+    static let footnote = "Sill은 하루에 한 번 GitHub에서 새 버전을 확인합니다. GitHub에는 이 Mac의 IP 주소와 Sill 버전만 전송됩니다. Sill은 업데이트를 자동으로 다운로드하거나 설치하지 않습니다. 새 버전의 GitHub 페이지를 열면 직접 다운로드할 수 있습니다."
 }

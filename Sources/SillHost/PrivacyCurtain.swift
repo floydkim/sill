@@ -97,7 +97,7 @@ final class PrivacyCurtain: NSObject {
     }
 
     private func failedToLock() {
-        let message = "Could not confirm this Mac is locked. The screen cover remains. Lock the Mac manually, then retry, or use Control–Option–Command–B to reveal locally."
+        let message = "이 Mac의 잠금을 확인하지 못해 화면 가리기를 유지합니다. Mac을 직접 잠근 뒤 다시 시도하거나 Control–Option–Command–B로 화면을 표시하세요."
         report(message)
         print("Privacy cover: " + message)
     }
@@ -120,7 +120,7 @@ final class PrivacyCurtain: NSObject {
                 window = existing
             } else {
                 window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
-                window.title = "Sill privacy cover"
+                window.title = "Sill 화면 가리기"
                 window.isReleasedWhenClosed = false
                 window.backgroundColor = .black
                 window.isOpaque = true

@@ -38,7 +38,7 @@ final class LoginItemModel {
             do {
                 try SMAppService.mainApp.register()
             } catch {
-                self.error = error.localizedDescription
+                self.error = "로그인 시 실행 설정을 변경하지 못했습니다: \(error.localizedDescription)"
                 print("Launch at login could not be turned on: \(error.localizedDescription)")
             }
             refresh()
@@ -47,7 +47,7 @@ final class LoginItemModel {
                 do {
                     try await SMAppService.mainApp.unregister()
                 } catch {
-                    self.error = error.localizedDescription
+                    self.error = "로그인 시 실행 설정을 변경하지 못했습니다: \(error.localizedDescription)"
                     print("Launch at login could not be turned off: \(error.localizedDescription)")
                 }
                 self.refresh()

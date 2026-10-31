@@ -18,7 +18,7 @@ struct NearbyHost: Identifiable {
 final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate, NetServiceDelegate {
     @Published var nearby: [NearbyHost] = []
     @Published var saved: [ViewerHost] = []
-    @Published var status = "Looking for Macs…" {
+    @Published var status = "Mac을 찾는 중…" {
         didSet { logger.info("\(self.status, privacy: .public)") }
     }
     @Published var connected = false
@@ -110,7 +110,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
 
     func netServiceBrowser(_ browser: NetServiceBrowser, didNotSearch errorDict: [String: NSNumber]) {
         guard browser === self.browser else { return }
-        error = "Discovery unavailable (\(errorDict)). Allow Local Network for Sill Viewer in System Settings → Privacy & Security, then press Refresh."
+        error = "Mac을 찾을 수 없습니다 (\(errorDict)). 시스템 설정 → 개인정보 보호 및 보안 → 로컬 네트워크에서 Sill 뷰어를 허용한 뒤 새로 고침을 누르세요."
     }
 
     func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
@@ -164,7 +164,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     }
 
     func connect(_ host: NearbyHost) {
-        guard host.encrypted else { fail("Update Sill on \(host.name). This viewer requires an encrypted host."); return }
+        guard host.encrypted else { fail("\(host.name)의 Sill을 업데이트하세요. 이 뷰어는 암호화된 연결을 지원하는 호스트가 필요합니다."); return }
         let known = saved.first { saved in
             host.tag.map { RecognitionTag.matches($0, recognitionKey: saved.recognitionKey) } ?? false
         }
@@ -188,7 +188,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     }
 
     func connectAddress(_ text: String) {
-        guard let endpoint = endpoint(text) else { fail("Enter a host name or IP address, optionally followed by :port (default 7455)."); return }
+        guard let endpoint = endpoint(text) else { fail("호스트 이름 또는 IP 주소를 입력하세요. 필요하면 뒤에 :포트를 붙일 수 있습니다 (기본 7455)."); return }
         prepare(endpoint: endpoint, name: text, address: text, service: nil)
         if let known = saved.first(where: { $0.address == text }) { session(endpoint: endpoint, pin: known.fingerprint) }
         else { askForCode() }
@@ -219,14 +219,14 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
             self.read(c) { [weak self] header, data in
                 guard let self else { return }
                 guard header.kind == .pairResult, let result = Wire.decode(PairResult.self, from: data) else {
-                    self.fail("Invalid pairing response."); return
+                    self.fail("잘못된 페어링 응답입니다."); return
                 }
                 self.closeConnection()
                 self.pairing = true
                 self.busy = false
-                self.status = "Enter the code shown on \(self.pairingName)."
+                self.status = "\(self.pairingName)에 표시된 코드를 입력하세요."
                 if result.reason != PairResult.shown {
-                    self.error = "On the host Mac, open Sill → Pair iPhone or iPad… to show a code."
+                    self.error = "원격 Mac에서 Sill → iPhone 또는 iPad 페어링…을 열어 코드를 표시하세요."
                 }
             }
         }
@@ -234,7 +234,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
 
     func pair(code text: String) {
         guard case .success(let code) = PairingCode.check(text) else {
-            error = "Check the 12-digit code shown on the host Mac."; return
+            error = "원격 Mac에 표시된 12자리 코드를 확인하세요."; return
         }
         guard let endpoint = pendingEndpoint, let identity else { return }
         error = nil
@@ -249,14 +249,14 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
                     self.read(c) { [weak self] header, data in
                         guard let self else { return }
                         guard header.kind == .pairResult, let result = Wire.decode(PairResult.self, from: data) else {
-                            self.fail("Invalid pairing response."); return
+                            self.fail("잘못된 페어링 응답입니다."); return
                         }
                         guard ViewerTrust.accepts(result, key: key, host: fingerprint, device: identity.fingerprint),
                               let recognition = result.recognitionKey.flatMap(Base64URL.decode) else {
                             self.closeConnection()
                             self.busy = false
-                            self.status = "Enter the code shown on \(self.pairingName)."
-                            self.error = result.ok ? "The host could not prove its identity." : "Pairing refused (\(result.reason ?? "unknown")). Check the code or show a fresh code on the host and try again."
+                            self.status = "\(self.pairingName)에 표시된 코드를 입력하세요."
+                            self.error = result.ok ? "원격 Mac의 신원을 확인할 수 없습니다." : "페어링이 거부됐습니다 (\(result.reason ?? "알 수 없음")). 코드를 확인하거나 원격 Mac에서 새 코드를 표시한 뒤 다시 시도하세요."
                             return
                         }
                         let host = ViewerHost(name: result.name ?? self.pairingName, fingerprint: fingerprint,
@@ -290,9 +290,9 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
 
     private func dial(endpoint: NWEndpoint, alpn: String, pin: Data?, ready: @escaping (NWConnection, Data) -> Void) {
         closeConnection()
-        guard let identity else { fail("Viewer identity is unavailable. Restart after unlocking Keychain."); return }
+        guard let identity else { fail("뷰어의 인증 정보를 사용할 수 없습니다. 키체인 잠금을 해제한 뒤 다시 실행하세요."); return }
         busy = true
-        status = "Connecting to \(pairingName)…"
+        status = "\(pairingName)에 연결하는 중…"
         let tls = RemoteTLS.options(identity: identity.tls, role: .client(alpn: alpn), verify: { fingerprint in
             guard let fingerprint else { return false }
             return pin == nil || pin == fingerprint
@@ -301,7 +301,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         connection = c
         let timeout = DispatchWorkItem { [weak self, weak c] in
             guard let self, let c, self.connection === c else { return }
-            self.fail("Connection timed out. Check the host, address and pairing. A changed host key requires removing the saved Mac and pairing again.")
+            self.fail("연결 시간이 초과됐습니다. 원격 Mac, 주소, 페어링 상태를 확인하세요. 원격 Mac의 키가 바뀌었다면 저장된 Mac을 삭제하고 다시 페어링해야 합니다.")
         }
         deadline = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: timeout)
@@ -310,10 +310,10 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
             switch state {
             case .ready:
                 guard let fingerprint = RemoteTLS.peerFingerprint(c), RemoteTLS.negotiatedALPN(c) == alpn else {
-                    self.fail("The host did not negotiate the Sill secure protocol."); return
+                    self.fail("원격 Mac과 Sill 보안 프로토콜을 협상하지 못했습니다."); return
                 }
                 ready(c, fingerprint)
-            case .failed(let error): self.fail("Connection failed: \(error.localizedDescription)")
+            case .failed(let error): self.fail("연결 실패: \(error.localizedDescription)")
             default: break
             }
         }
@@ -324,8 +324,8 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         reader = MessageReader(connection: c, stillReads: { [weak self, weak c] in
             guard let c else { return false }; return self?.connection === c
         }, onBytes: { [weak self] _ in self?.lastFrameAt = Date() }, onMessage: message, onEnd: { [weak self] end in
-            if case .tooBig = end { self?.fail("The host sent an oversized message.") }
-            else { self?.fail("The connection ended. Reconnect when the host is available.") }
+            if case .tooBig = end { self?.fail("원격 Mac이 허용 크기를 넘는 메시지를 보냈습니다.") }
+            else { self?.fail("연결이 종료됐습니다. 원격 Mac을 사용할 수 있을 때 다시 연결하세요.") }
         })
         reader?.start()
     }
@@ -333,7 +333,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
     private func received(_ header: StreamHeader, _ data: Data) {
         switch header.kind {
         case .windowList:
-            guard let list = Wire.decode(WindowList.self, from: data) else { fail("Invalid window list."); return }
+            guard let list = Wire.decode(WindowList.self, from: data) else { fail("잘못된 앱 창 목록입니다."); return }
             windows = list.windows
             displays = list.displays ?? []
             desktopDisplayID = list.desktopDisplayID
@@ -346,7 +346,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
                 onClear?()
                 awaitPicture()
             }
-            status = "Connected to \(list.macName)"
+            status = "\(list.macName)에 연결됨"
             if !receivedCatalog {
                 receivedCatalog = true
                 deadline?.cancel()
@@ -356,7 +356,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
                 lastFrameAt = Date()
                 heartbeat = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
                     guard let self else { return }
-                    if Date().timeIntervalSince(self.lastFrameAt) > 20 { self.fail("The host stopped responding."); return }
+                    if Date().timeIntervalSince(self.lastFrameAt) > 20 { self.fail("원격 Mac의 응답이 없습니다."); return }
                     self.send(.ping, Data(repeating: 0, count: 8))
                 }
                 if list.active == .none { select(.desktop) }
@@ -370,13 +370,13 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
                 pendingSettings = nil
                 settingsPending = false
                 let accepted = change.applied(to: state.settings) == state.settings
-                settingsNotice = accepted ? "Confirmed by host." : "The host did not accept this setting. Its current value is shown."
+                settingsNotice = accepted ? "원격 Mac에 적용됐습니다." : "원격 Mac이 설정을 적용하지 않았습니다. 현재 설정값을 표시합니다."
                 logger.notice("Quality reply: accepted=\(accepted), bitrate=\(state.settings.bitrate), scale=\(state.settings.captureScale), fps=\(state.settings.maxFPS)")
             }
         case .parameterSets:
             guard let sets = ParameterSets(encoded: data), sets.sets.count == 3,
                   [1, 2, 4].contains(sets.nalUnitHeaderLength), sets.sets.allSatisfy({ !$0.isEmpty }) else {
-                fail("Invalid HEVC parameters."); return
+                fail("잘못된 HEVC 매개변수입니다."); return
             }
             onParameters?(sets)
         case .frame: onFrame?(data, header.isKeyframe)
@@ -395,7 +395,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
             }
         case .goodbye:
             let goodbye = Wire.decode(Goodbye.self, from: data)
-            fail(goodbye?.message ?? "The host closed this session.")
+            fail(goodbye?.message ?? "원격 Mac이 연결을 종료했습니다.")
         default: break
         }
     }
@@ -440,7 +440,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
             guard let self, self.pendingSettings?.token == change.token else { return }
             self.pendingSettings = nil
             self.settingsPending = false
-            self.settingsNotice = "No confirmation from the host. The last reported settings are shown."
+            self.settingsNotice = "원격 Mac의 확인 응답이 없습니다. 마지막으로 받은 설정을 표시합니다."
         }
         settingsDeadline = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: timeout)
@@ -464,7 +464,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         let timeout = DispatchWorkItem { [weak self] in
             guard let self, self.connected, !self.pictureReady else { return }
             self.pictureTimedOut = true
-            self.error = "Connected, but the picture is unavailable. Retrying the selected screen every 10 seconds. If the host is locked, unlock it to resume."
+            self.error = "연결됐지만 영상을 받을 수 없습니다. 선택한 화면을 10초마다 다시 요청합니다. 원격 Mac이 잠겨 있다면 잠금을 해제하세요."
             var retry = self.source == .none ? StreamSource.desktop : self.source
             if case .window(let id) = retry, !self.windows.contains(where: { $0.id == id }) { retry = .desktop }
             self.logger.notice("Retrying screen selection for the released Sill host")
@@ -527,7 +527,7 @@ final class ViewerClient: NSObject, ObservableObject, NetServiceBrowserDelegate,
         settingsPending = false
         settingsNotice = nil
         source = .none
-        status = "Looking for Macs…"
+        status = "Mac을 찾는 중…"
     }
 
     private func closeConnection(graceful: Bool = false) {

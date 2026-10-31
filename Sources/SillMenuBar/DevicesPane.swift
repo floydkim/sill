@@ -60,21 +60,21 @@ struct DevicesPane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Require pairing", isOn: $requirePairing)
+                Toggle("페어링 필수", isOn: $requirePairing)
                     .disabled(unavailable != nil)
                 if let problem = unavailable {
-                    Warning("Devices can’t connect: Sill couldn’t use its key in your keychain (\(withoutFullStop(problem))). Quit Sill and open it again, and choose Always Allow if the keychain asks.")
+                    Warning("기기를 연결할 수 없습니다. Sill이 키체인의 키를 사용할 수 없습니다(\(withoutFullStop(problem))). Sill을 종료한 뒤 다시 열고, 키체인에서 묻는다면 ‘항상 허용’을 선택하세요.")
                 } else if let p = requirePairingProblem {
                     let reason = withoutFullStop(p.reason)
                     Warning(p.wanted
-                            ? "Pairing is required until Sill quits: Sill couldn’t update the keychain (\(reason)). Try again."
-                            : "Pairing is still required: Sill couldn’t update the keychain (\(reason)). Try again.")
+                            ? "Sill을 종료할 때까지 페어링이 필수입니다. 키체인을 갱신할 수 없습니다(\(reason)). 다시 시도하세요."
+                            : "페어링이 계속 필수입니다. 키체인을 갱신할 수 없습니다(\(reason)). 다시 시도하세요.")
                 }
             } footer: {
                 if requirePairing {
-                    Footnote("Each iPhone or iPad pairs once: over the USB cable by itself, or on Wi\u{2011}Fi with a code this Mac shows when the device asks. Everything devices send and receive is encrypted.")
+                    Footnote("각 iPhone이나 iPad는 한 번만 페어링하면 됩니다. USB 케이블로 자동 페어링하거나, Wi‑Fi에서 기기의 요청에 따라 이 Mac에 표시되는 코드를 사용합니다. 기기가 주고받는 모든 데이터는 암호화됩니다.")
                 } else {
-                    Label("Any device on your network (or nearby, with Direct Wireless Connection on) and any app on this Mac can see and control it without pairing. Connections are still encrypted.",
+                    Label("네트워크의 모든 기기와 이 Mac의 모든 앱이 페어링 없이 화면을 보고 조작할 수 있습니다. 직접 무선 연결을 켰다면 근처 기기도 가능합니다. 연결은 계속 암호화됩니다.",
                           systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
                         .foregroundStyle(.orange)
@@ -83,9 +83,9 @@ struct DevicesPane: View {
                 }
             }
             Section {
-                Toggle("Show the pairing window to screen sharing", isOn: $showPairingWindowToScreenSharing)
+                Toggle("화면 공유에 페어링 창 표시", isOn: $showPairingWindowToScreenSharing)
             } footer: {
-                Footnote("Turn this on to pair while you use this Mac through Screen Sharing or another remote desktop app, as you would a Mac without a display. While it’s on, anyone who can see this Mac’s screen remotely can read the code. Devices streaming this Mac never show the window.")
+                Footnote("화면 공유나 다른 원격 데스크탑 앱으로 이 Mac을 사용하는 동안 페어링하려면 켜세요. 켜 두면 이 Mac의 화면을 원격으로 볼 수 있는 사람은 코드를 읽을 수 있습니다. Sill로 이 Mac의 영상을 보는 기기에는 페어링 창이 표시되지 않습니다.")
             }
             pairedDevices
         }
@@ -94,16 +94,16 @@ struct DevicesPane: View {
     private var pairedDevices: some View {
         Section {
             if let removedName {
-                Text("\(removedName) can no longer connect. To use it again, pair it again.")
+                Text("\(removedName) 기기의 연결 권한을 해제했습니다. 다시 사용하려면 페어링해야 합니다.")
             }
             if let removeProblem {
-                Warning("\(removeProblem.name) is still paired: Sill couldn’t update the keychain (\(withoutFullStop(removeProblem.reason))). Try again.")
+                Warning("\(removeProblem.name) 기기가 아직 페어링되어 있습니다. 키체인을 갱신할 수 없습니다(\(withoutFullStop(removeProblem.reason))). 다시 시도하세요.")
             }
             if unavailable != nil {
                 // The trust list lives with the key: unread, not empty.
-                Text("Your paired devices show here once Sill can use its key again.").foregroundStyle(.secondary)
+                Text("Sill이 키를 다시 사용할 수 있게 되면 페어링한 기기가 여기에 표시됩니다.").foregroundStyle(.secondary)
             } else if status.paired.isEmpty {
-                Text("No paired devices yet.").foregroundStyle(.secondary)
+                Text("아직 페어링한 기기가 없습니다.").foregroundStyle(.secondary)
             }
             ForEach(status.paired) { device in
                 PairedDeviceRow(device: device, now: now,
@@ -120,12 +120,12 @@ struct DevicesPane: View {
                                 },
                                 rename: { actions.rename(device.id, $0) })
             }
-            Button("Pair iPhone or iPad…") { actions.pair() }
+            Button("iPhone 또는 iPad 페어링…") { actions.pair() }
                 .disabled(unavailable != nil)
         } header: {
-            Text("Paired Devices")
+            Text("페어링한 기기")
         } footer: {
-            Footnote("A paired device can see and control this Mac on your network, nearby, and from afar while Remote Access is on. If one is lost, remove it here.")
+            Footnote("페어링한 기기는 같은 네트워크나 근처에서 이 Mac을 보고 조작할 수 있으며, 원격 접속을 켜면 외부에서도 가능합니다. 기기를 분실했다면 여기서 제거하세요.")
         }
     }
 }
@@ -145,10 +145,10 @@ struct PairedDeviceRow: View {
 
     var body: some View {
         LabeledContent {
-            Button("Remove", action: remove)
+            Button("제거", action: remove)
         } label: {
             if editing {
-                TextField("Name", text: $text)
+                TextField("이름", text: $text)
                     .focused($focused)
                     .onSubmit {
                         rename(text)
@@ -158,7 +158,7 @@ struct PairedDeviceRow: View {
             } else {
                 Text(device.name)
                     .onTapGesture(count: 2) { startEditing() }
-                    .accessibilityAction(named: "Rename") { startEditing() }
+                    .accessibilityAction(named: "이름 변경") { startEditing() }
             }
             Text(Self.detail(device, now: now ?? Date()))
         }
@@ -173,21 +173,27 @@ struct PairedDeviceRow: View {
     /// "Paired Sep 25 over the USB cable · last connected 2 minutes ago over Wi‑Fi", "Paired Sep 24
     /// with the QR code · last connected yesterday through Tailscale".
     static func detail(_ device: PairedDeviceSummary, now: Date) -> String {
-        var out = "Paired \(day(device.pairedAt, now: now))"
-        if let method = device.displayMethod { out += " \(method)" }
+        var out = "페어링: \(day(device.pairedAt, now: now))"
+        switch device.method {
+        case PairRequest.qr: out += " · QR 코드"
+        case PairRequest.code: out += " · 코드 입력"
+        case PairResult.cable: out += " · USB 케이블"
+        default: break
+        }
         if let seen = device.lastSeen {
             let formatter = RelativeDateTimeFormatter()
+            formatter.locale = Locale(identifier: "ko_KR")
             formatter.unitsStyle = .full
             formatter.dateTimeStyle = .named
-            let when = now.timeIntervalSince(seen) < 60 ? "just now" : formatter.localizedString(for: seen, relativeTo: now)
-            out += " · last connected \(when)"
-            if let route = device.lastRoute { out += " \(route)" }
+            let when = now.timeIntervalSince(seen) < 60 ? "방금" : formatter.localizedString(for: seen, relativeTo: now)
+            out += " · 마지막 연결: \(when)"
+            if let route = device.lastRoute { out += " · \(StatusText.koreanRoute(route))" }
         }
         return out
     }
 
     static func day(_ date: Date, now: Date) -> String {
         let sameYear = Calendar.current.component(.year, from: date) == Calendar.current.component(.year, from: now)
-        return sameYear ? date.formatted(.dateTime.month(.abbreviated).day()) : date.formatted(.dateTime.month(.abbreviated).day().year())
+        return sameYear ? date.formatted(.dateTime.month(.abbreviated).day().locale(Locale(identifier: "ko_KR"))) : date.formatted(.dateTime.month(.abbreviated).day().year().locale(Locale(identifier: "ko_KR")))
     }
 }

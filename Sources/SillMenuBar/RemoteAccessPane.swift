@@ -55,25 +55,25 @@ struct RemoteAccessPane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Remote access", isOn: $remoteAccess)
+                Toggle("원격 접속", isOn: $remoteAccess)
                     .disabled(!available)
                 if let problem = status.identityProblem {
                     // The system's messages end with a full stop of their own.
                     let reason = problem.hasSuffix(".") ? String(problem.dropLast()) : problem
-                    Warning("Remote access isn’t available: Sill couldn’t use the keychain (\(reason)).")
+                    Warning("원격 접속을 사용할 수 없습니다. Sill이 키체인을 사용할 수 없습니다(\(reason)).")
                 }
             } footer: {
-                Footnote("Lets the iPhone and iPad you pair connect to this Mac from other networks: through a VPN such as Tailscale, or through a port you forward on your router. Sill turns away every device you haven’t paired, and encrypts everything the paired ones send and receive.")
+                Footnote("페어링한 iPhone과 iPad가 다른 네트워크에서 이 Mac에 접속할 수 있게 합니다. Tailscale 같은 VPN이나 공유기의 포트 포워딩을 사용합니다. 페어링하지 않은 기기는 차단하며, 페어링한 기기가 주고받는 모든 데이터는 암호화합니다.")
             }
             if on { addresses }
             pairedDevices
             if on { internet }
             Section {
                 LabeledContent {
-                    Button("Open Energy Settings…") { Self.openEnergySettings() }
+                    Button("에너지 설정 열기…") { Self.openEnergySettings() }
                 } label: {
-                    Text("Sleep")
-                    Text("This Mac can’t be reached while it’s asleep. While a device is connected from away, Sill keeps it from going to sleep by itself.")
+                    Text("잠자기")
+                    Text("Mac이 잠자기 상태이면 접속할 수 없습니다. 외부에서 기기가 연결된 동안 Sill이 자동 잠자기를 방지합니다.")
                 }
             }
         }
@@ -87,12 +87,12 @@ struct RemoteAccessPane: View {
             switch status.listener {
             case .portInUse(let p):
                 LabeledContent {
-                    Button("Change…") { startEditingPort() }
+                    Button("변경…") { startEditingPort() }
                 } label: {
-                    Warning("Port \(p) is in use by another app, so devices can’t reach this Mac remotely. Sill tries again every 30 seconds.")
+                    Warning("다른 앱이 포트 \(p)를 사용 중이어서 원격 접속을 받을 수 없습니다. Sill이 30초마다 다시 시도합니다.")
                 }
             case .failed(let error):
-                Warning("Remote access couldn’t start (\(error)). Sill tries again every 30 seconds.")
+                Warning("원격 접속을 시작할 수 없습니다(\(error)). Sill이 30초마다 다시 시도합니다.")
             case .off, .listening:
                 EmptyView()
             }
@@ -108,31 +108,31 @@ struct RemoteAccessPane: View {
                                     .textSelection(.enabled)
                             }
                         }
-                        CopyButton(text: row.primary, spoken: "Copy the \(row.label) address")
+                        CopyButton(text: row.primary, spoken: "\(StatusText.koreanRoute(row.label)) 주소 복사")
                     }
                 } label: {
-                    Text(row.label)
+                    Text(StatusText.koreanRoute(row.label))
                     if row.lan {
-                        Text("This network. Use it with a VPN into your home network, such as WireGuard on your router.")
+                        Text("현재 네트워크의 주소입니다. 공유기의 WireGuard처럼 이 네트워크에 접속할 수 있는 VPN과 함께 사용하세요.")
                     }
                 }
             }
             ForEach(status.vpnDown, id: \.self) { name in
-                Text("\(name) — Not connected").foregroundStyle(.secondary)
+                Text("\(name) — 연결되지 않음").foregroundStyle(.secondary)
             }
             if !rows.contains(where: { $0.vpn }) && status.vpnDown.isEmpty {
-                Text("No VPN is running on this Mac. Install one such as Tailscale on this Mac and on your iPhone or iPad, or allow connections from the internet below.")
+                Text("이 Mac에 연결된 VPN이 없습니다. 이 Mac과 iPhone 또는 iPad에 Tailscale 같은 VPN을 설치하거나, 아래에서 인터넷 연결을 허용하세요.")
                     .foregroundStyle(.secondary)
             }
             portRow
         } header: {
-            Text("Addresses")
+            Text("주소")
         } footer: {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(status.vpnDown, id: \.self) { name in
-                    Footnote("Your devices can’t reach this Mac through \(name) until it connects.")
+                    Footnote("\(name)에 연결되기 전에는 기기가 해당 경로로 이 Mac에 접속할 수 없습니다.")
                 }
-                Footnote("Your devices learn these when they pair and keep them current whenever they connect.")
+                Footnote("기기는 페어링할 때 이 주소를 저장하고, 연결할 때마다 최신 주소로 갱신합니다.")
             }
         }
     }
@@ -140,33 +140,33 @@ struct RemoteAccessPane: View {
     @ViewBuilder private var portRow: some View {
         if editingPort {
             let problem = Self.portProblem(portText)
-            LabeledContent("Port") {
+            LabeledContent("포트") {
                 HStack(spacing: 8) {
-                    TextField("Port", text: $portText)
+                    TextField("포트", text: $portText)
                         .labelsHidden()
                         .frame(width: 72)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                         .onSubmit { savePort() }
                         .onExitCommand { editingPort = false }
-                    Button("Save") { savePort() }
+                    Button("저장") { savePort() }
                         .disabled(problem?.blocks ?? false)
                         .keyboardShortcut(.defaultAction)
-                    Button("Cancel") { editingPort = false }
+                    Button("취소") { editingPort = false }
                 }
             }
             if let problem {
                 if problem.blocks { Warning(problem.message) } else { Text(problem.message).foregroundStyle(.secondary) }
             }
         } else {
-            LabeledContent("Port") {
+            LabeledContent("포트") {
                 HStack(spacing: 8) {
                     Text(String(port)).monospacedDigit().textSelection(.enabled)
-                    Button("Change…") { startEditingPort() }
+                    Button("변경…") { startEditingPort() }
                 }
             }
             if portSaved {
-                Text("Paired devices learn the new port the next time they connect at home.").foregroundStyle(.secondary)
+                Text("페어링한 기기는 다음에 같은 네트워크에서 연결할 때 새 포트를 저장합니다.").foregroundStyle(.secondary)
             }
         }
     }
@@ -192,10 +192,10 @@ struct RemoteAccessPane: View {
     static func portProblem(_ text: String) -> (message: String, blocks: Bool)? {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty, t.allSatisfy({ $0.isASCII && $0.isNumber }), t.count <= 5, let p = Int(t), (1024...65535).contains(p) else {
-            return ("Choose a port from 1024 to 65535.", true)
+            return ("1024~65535 사이의 포트를 입력하세요.", true)
         }
-        if p == 5000 || p == 7000 { return ("Port \(p) belongs to AirPlay Receiver. Choose another.", true) }
-        if p >= 49152 { return ("Ports from 49152 up can be taken by any app at any moment.", false) }
+        if p == 5000 || p == 7000 { return ("포트 \(p)는 AirPlay 수신기가 사용합니다. 다른 포트를 선택하세요.", true) }
+        if p >= 49152 { return ("49152 이상의 포트는 다른 앱이 언제든 사용할 수 있습니다.", false) }
         return nil
     }
 
@@ -205,14 +205,14 @@ struct RemoteAccessPane: View {
     /// devices connect at home too.
     private var pairedDevices: some View {
         Section {
-            LabeledContent("Paired devices") {
+            LabeledContent("페어링한 기기") {
                 HStack(spacing: 8) {
-                    Text(status.paired.isEmpty ? "None" : "\(status.paired.count)").monospacedDigit()
-                    Button("Show Devices…") { actions.showDevices() }
+                    Text(status.paired.isEmpty ? "없음" : "\(status.paired.count)").monospacedDigit()
+                    Button("기기 보기…") { actions.showDevices() }
                 }
             }
         } footer: {
-            Footnote("The devices you pair in Devices can connect from afar while Remote Access is on.")
+            Footnote("기기 탭에서 페어링한 기기는 원격 접속을 켜 두면 외부에서도 연결할 수 있습니다.")
         }
     }
 
@@ -220,13 +220,13 @@ struct RemoteAccessPane: View {
 
     private var internet: some View {
         Section {
-            Toggle("Allow connections from the internet", isOn: $internetAccess)
+            Toggle("인터넷에서 연결 허용", isOn: $internetAccess)
             if internetAccess {
                 if let lan = status.lanAddress {
                     LabeledContent {
-                        CopyButton(text: lan, spoken: "Copy this Mac’s address")
+                        CopyButton(text: lan, spoken: "이 Mac의 주소 복사")
                     } label: {
-                        Text("Forward TCP port \(String(port)) on your router to this Mac (\(lan)), and reserve that address for this Mac in the router’s settings.")
+                        Text("공유기의 TCP 포트 \(String(port))를 이 Mac(\(lan))으로 포워딩하고, 공유기 설정에서 이 Mac에 해당 주소를 고정 할당하세요.")
                     }
                 }
                 routerRow
@@ -235,21 +235,21 @@ struct RemoteAccessPane: View {
                     LabeledContent {
                         HStack(spacing: 8) {
                             Text(v6.host).textSelection(.enabled)
-                            CopyButton(text: v6.host, spoken: "Copy the IPv6 address")
+                            CopyButton(text: v6.host, spoken: "IPv6 주소 복사")
                         }
                     } label: {
                         Text("IPv6")
-                        Text("Works only if your router lets incoming IPv6 connections reach this Mac; most don’t.")
+                        Text("공유기가 외부 IPv6 연결을 이 Mac으로 허용해야 작동합니다. 대부분의 공유기는 기본으로 차단합니다.")
                     }
                 }
             }
         } header: {
-            Text("Internet")
+            Text("인터넷")
         } footer: {
             if internetAccess {
-                Footnote("Anyone on the internet can now reach port \(String(port)) and try to connect. Sill turns away every device you haven’t paired. Turning this off doesn’t close the port on your router: remove the forward there too.")
+                Footnote("인터넷의 누구나 포트 \(String(port))에 연결을 시도할 수 있습니다. Sill은 페어링하지 않은 기기를 차단합니다. 이 설정을 꺼도 공유기 포트는 닫히지 않으므로 포트 포워딩도 삭제하세요.")
             } else {
-                Footnote("Only needed for a port forward on your router. A VPN is simpler and keeps this Mac off the open internet.")
+                Footnote("공유기의 포트 포워딩을 사용할 때만 필요합니다. VPN을 사용하면 더 간단하며 이 Mac을 인터넷에 직접 노출하지 않습니다.")
             }
         }
     }
@@ -259,39 +259,39 @@ struct RemoteAccessPane: View {
         case .off:
             EmptyView()
         case .asking:
-            LabeledContent("Router’s internet address") { Text("Asking your router…").foregroundStyle(.secondary) }
+            LabeledContent("공유기의 인터넷 주소") { Text("공유기에 확인 중…").foregroundStyle(.secondary) }
         case .address(let a):
-            LabeledContent("Router’s internet address") {
+            LabeledContent("공유기의 인터넷 주소") {
                 HStack(spacing: 8) {
                     Text(a).textSelection(.enabled)
-                    CopyButton(text: a, spoken: "Copy the router’s internet address")
+                    CopyButton(text: a, spoken: "공유기의 인터넷 주소 복사")
                 }
             }
         case .carrierNAT(let a):
-            LabeledContent("Router’s internet address") {
-                Warning("Your internet provider shares this address among many homes (\(Self.masked(a))), so a port forward can’t reach this Mac. Use a VPN such as Tailscale instead.")
+            LabeledContent("공유기의 인터넷 주소") {
+                Warning("인터넷 제공업체가 이 주소(\(Self.masked(a)))를 여러 가입자에게 공유하므로 포트 포워딩으로 이 Mac에 접속할 수 없습니다. Tailscale 같은 VPN을 사용하세요.")
             }
         case .doubleNAT:
-            LabeledContent("Router’s internet address") {
-                Warning("Your router sits behind another router. Forward the port on both, or use a VPN.")
+            LabeledContent("공유기의 인터넷 주소") {
+                Warning("공유기 앞에 다른 공유기가 있습니다. 두 공유기 모두에 포트 포워딩을 설정하거나 VPN을 사용하세요.")
             }
         case .noAnswer:
-            LabeledContent("Router’s internet address") {
-                Text("Your router didn’t say. You’ll find the address in its settings.").foregroundStyle(.secondary)
+            LabeledContent("공유기의 인터넷 주소") {
+                Text("공유기에서 주소를 받지 못했습니다. 공유기 설정에서 확인하세요.").foregroundStyle(.secondary)
             }
         }
     }
 
     @ViewBuilder private var addressNameRow: some View {
         LabeledContent {
-            TextField("Address name", text: Binding(get: { nameText ?? addressName }, set: { nameText = $0; nameProblem = nil }),
+            TextField("주소 이름", text: Binding(get: { nameText ?? addressName }, set: { nameText = $0; nameProblem = nil }),
                       prompt: Text("home.example.net"))
                 .labelsHidden()
                 .frame(width: 220)
                 .onSubmit { saveAddressName() }
         } label: {
-            Text("Address name (optional)")
-            Text("If your router has a dynamic DNS name, enter it so your devices keep finding this Mac when your internet address changes. Add :port if the router forwards a different outside port.")
+            Text("주소 이름(선택 사항)")
+            Text("공유기에 동적 DNS 이름이 있다면 입력하세요. 인터넷 주소가 바뀌어도 기기가 이 Mac을 찾을 수 있습니다. 공유기의 외부 포트가 다르다면 이름 뒤에 :포트를 붙이세요.")
         }
         if let nameProblem { Warning(nameProblem) }
     }
@@ -304,9 +304,9 @@ struct RemoteAccessPane: View {
             nameProblem = nil
             actions.setAddressName(text)
         case .failure(.zone):
-            nameProblem = "Remove the part after %: it only works on this network."
+            nameProblem = "% 뒤의 부분을 제거하세요. 해당 부분은 현재 네트워크에서만 사용할 수 있습니다."
         case .failure:
-            nameProblem = "That doesn’t look like an address. Try home.example.net, or home.example.net:17455."
+            nameProblem = "올바른 주소가 아닙니다. home.example.net 또는 home.example.net:17455 형식으로 입력하세요."
         }
     }
 
@@ -360,14 +360,14 @@ struct RemoteAccessPane: View {
     }
 }
 
-/// Copy, then "Copied" for 1.5 s.
+/// Copy, then "복사됨" for 1.5 s.
 private struct CopyButton: View {
     let text: String
     let spoken: String
     @State private var copied = false
 
     var body: some View {
-        Button(copied ? "Copied" : "Copy") {
+        Button(copied ? "복사됨" : "복사") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             copied = true
@@ -376,6 +376,6 @@ private struct CopyButton: View {
                 copied = false
             }
         }
-        .accessibilityLabel(copied ? "Copied" : spoken)
+        .accessibilityLabel(copied ? "복사됨" : spoken)
     }
 }

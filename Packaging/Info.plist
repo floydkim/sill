@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>ko</string>
 	<key>CFBundleDisplayName</key>
 	<string>Sill</string>
 	<key>CFBundleExecutable</key>
@@ -35,9 +35,9 @@
 		<string>_sill._tcp</string>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>Sill is free and open source.</string>
+	<string>Sill은 무료 오픈 소스 소프트웨어입니다.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Sill makes this Mac visible to your iPhone and iPad on the same network so they can stream its windows.</string>
+	<string>같은 네트워크의 iPhone과 iPad에서 이 Mac을 찾아 화면을 보고 조작할 수 있도록 로컬 네트워크를 사용합니다.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSSupportsAutomaticTermination</key>

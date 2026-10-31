@@ -34,13 +34,13 @@ enum ViewerStore {
                                           kSecAttrApplicationTag as String: tag,
                                           kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]]
             guard let created = SecKeyCreateRandomKey(attrs as CFDictionary, &error) else {
-                throw error?.takeRetainedValue() ?? failure("Cannot create viewer identity.")
+                throw error?.takeRetainedValue() ?? failure("뷰어의 인증 정보를 생성할 수 없습니다.")
             }
             key = created
         } else {
-            throw failure("Cannot read viewer identity (Keychain \(status)).")
+            throw failure("뷰어의 인증 정보를 읽을 수 없습니다 (키체인 \(status)).")
         }
-        guard let identity = RemoteIdentity(privateKey: key) else { throw failure("Cannot create TLS certificate.") }
+        guard let identity = RemoteIdentity(privateKey: key) else { throw failure("TLS 인증서를 생성할 수 없습니다.") }
         return identity
     }
 
@@ -51,7 +51,7 @@ enum ViewerStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         if status == errSecItemNotFound { return [] }
         guard status == errSecSuccess, let data = item as? Data else {
-            throw failure("Cannot read saved Macs (Keychain \(status)).")
+            throw failure("저장된 Mac을 읽을 수 없습니다 (키체인 \(status)).")
         }
         return try JSONDecoder().decode([ViewerHost].self, from: data)
     }
@@ -64,9 +64,9 @@ enum ViewerStore {
             query[kSecValueData as String] = data
             query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             let added = SecItemAdd(query as CFDictionary, nil)
-            guard added == errSecSuccess else { throw failure("Cannot save paired Mac (Keychain \(added)).") }
+            guard added == errSecSuccess else { throw failure("페어링한 Mac을 저장할 수 없습니다 (키체인 \(added)).") }
         } else if status != errSecSuccess {
-            throw failure("Cannot save paired Mac (Keychain \(status)).")
+            throw failure("페어링한 Mac을 저장할 수 없습니다 (키체인 \(status)).")
         }
     }
 
