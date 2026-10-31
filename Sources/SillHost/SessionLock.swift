@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import Darwin
 
 /// Whether this Mac's user is at an unlocked console (docs/home-pairing-plan.md §4.3): the ask
 /// rule's step 1 (a locked Mac pairs nothing by itself and opens no window, which nobody could
@@ -23,6 +24,35 @@ package final class SessionLock {
     private var observers: [NSObjectProtocol] = []
 
     private init() {}
+
+    /// Require an explicit positive reading before removing a privacy cover.
+    func confirmedLocked() -> Bool {
+        let dictionary = CGSessionCopyCurrentDictionary() as? [String: Any]
+        return (dictionary?["CGSSessionScreenIsLocked"] as? NSNumber)?.boolValue == true
+    }
+
+    // shortcut: macOS exposes no public lock-screen request; reverify this private entry on OS upgrades.
+    private static let lockScreen: (@convention(c) () -> Void)? = {
+        guard let handle = dlopen("/System/Library/PrivateFrameworks/login.framework/login", RTLD_LAZY | RTLD_LOCAL),
+              let symbol = dlsym(handle, "SACLockScreenImmediate") else { return nil }
+        return unsafeBitCast(symbol, to: (@convention(c) () -> Void).self)
+    }()
+
+    func lockAndConfirm() async -> Bool {
+        guard !Task.isCancelled else { return false }
+        if !confirmedLocked() {
+            guard let lock = Self.lockScreen else { return false }
+            lock()
+            for _ in 0..<30 {
+                do { try await Task.sleep(for: .milliseconds(100)) } catch { return false }
+                if confirmedLocked() { break }
+            }
+        }
+        guard confirmedLocked() else { return false }
+        // shortcut: the lock flag precedes the fade animation; this delay is not a compositor fence.
+        do { try await Task.sleep(for: .seconds(1)) } catch { return false }
+        return !Task.isCancelled && confirmedLocked()
+    }
 
     /// Whether the console is this user's and unlocked, now. `testHost`: whether SILL_TEST_LOCKED
     /// may count.

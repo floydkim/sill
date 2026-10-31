@@ -156,6 +156,15 @@ private struct GeneralPane: View {
             // The clipboard both ways (HostClipboard): at once, no restart. Each device has its own
             // switch too. macOS's answer is read with the permissions (once a second while this pane
             // shows, and when Sill becomes active), never in a preview.
+            Section {
+                Toggle("Hide this Mac’s screens during remote use", isOn: $settings.config.hideLocalScreen)
+                    .disabled(model.synthetic)
+                if let problem = model.coordinator?.status.snapshot.privacyCurtainProblem {
+                    Warning(problem)
+                }
+            } footer: {
+                Footnote("Covers physical monitors while a device is connected. The last disconnection or turning this off locks the Mac before removing the cover. Control–Option–Command–B reveals the screens for the current session. The pointer may remain visible. Force quitting Sill removes the cover.")
+            }
             ClipboardSection(shareClipboard: $settings.config.shareClipboard,
                              access: previewClipboardAccess ?? model.permissions.clipboardAccess,
                              allow: { model.permissions.allowClipboard() })

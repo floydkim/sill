@@ -48,6 +48,7 @@ package final class StreamCoordinator {
     /// (`--synthetic`, as `injector.dryRun`) only counts `disp.wakeDry`.
     private var displayWake: DisplayWake
     private let displayActivity: DisplayActivity
+    private var privacyCurtain: PrivacyCurtain?
     /// The parameter sets that last went out, forgotten as each stream starts (`select`): a stream's
     /// first, and any that differ, are a new frame size for the devices (`parameterSetsSent`).
     private var lastParameterSets: Data?
@@ -451,7 +452,7 @@ package final class StreamCoordinator {
 
         server.onClientConnected = { [weak self] connection, route, link in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, !self.shuttingDown else { return }
                 let id = ObjectIdentifier(connection)
                 self.routes[id] = route
                 // A paired device shows its paired name until its own stats arrive, and a remote one
@@ -482,7 +483,10 @@ package final class StreamCoordinator {
                 // Home or away before its catalog: its settings state says which quality it sets.
                 self.routesChanged(joined: id, endpoint: "\(connection.endpoint)")
                 // A sleeping display gives black frames: the session's start wakes it, as a key would.
-                if !cut { self.deviceActive(.connect, connection) }
+                if !cut {
+                    self.updatePrivacyCurtain()
+                    self.deviceActive(.connect, connection)
+                }
                 // Catalog first: the client's UI needs it even if the keyframe is slow to come.
                 self.catalog.thumbnailsWanted = true
                 self.sendCatalog(to: connection)
@@ -519,6 +523,7 @@ package final class StreamCoordinator {
                 self.keyframeRequestAt[id] = nil
                 self.viewportRefusedLineAt[id] = nil
                 self.routes[id] = nil
+                self.updatePrivacyCurtain()
                 self.lastPairingWanted[id] = nil
                 self.connections[id] = nil
                 self.lastPublished[id] = nil
@@ -836,6 +841,7 @@ package final class StreamCoordinator {
         // Share clipboard with devices, at once rather than between pipelines: off must stop what goes
         // out now, not after a restart. The lists say `clipboard` again (or no longer).
         if clipboard.setEnabled(new.shareClipboard) { broadcastList() }
+        if new.hideLocalScreen != target.hideLocalScreen { updatePrivacyCurtain(enabled: new.hideLocalScreen) }
         guard new != target else { return false }
         pendingConfig = new
         publishSettings()
@@ -1056,6 +1062,7 @@ package final class StreamCoordinator {
     // MARK: Client messages
 
     private func handle(_ message: StreamMessage, from connection: NWConnection) async {
+        guard !shuttingDown else { return }
         // Input decoded once, for the display's rule and for its case below.
         let input = message.kind == .input ? Wire.decode(InputEvent.self, from: message.payload) : nil
         // A device the Mac no longer serves (`revoked`): only the up of a key or a button it holds down
@@ -1800,7 +1807,7 @@ package final class StreamCoordinator {
         // would let a pairing window opened later reach the devices. Without Sill anywhere
         // (the CLI has no windows), as before.
         var resolved: SCRunningApplication? = nil
-        if catalog.ownApplication == nil, remote != nil {
+        if catalog.ownApplication == nil, remote != nil || privacyCurtain?.isCovering == true {
             resolved = await catalog.resolveOwnApplication()
             guard !shuttingDown else { return nil }
         }
@@ -1808,6 +1815,10 @@ package final class StreamCoordinator {
         desktopCaptureID = d.displayID
         desktopCaptureRect = d.frame
         let own = catalog.ownApplication ?? resolved      // the newest look's, read with its display
+        guard own != nil || privacyCurtain?.isCovering != true else {
+            print("Desktop capture paused: could not exclude Sill's privacy cover.")
+            return nil
+        }
         let displayFilter = own.map { SCContentFilter(display: d, excludingApplications: [$0], exceptingWindows: []) }
             ?? SCContentFilter(display: d, excludingWindows: [])
         // At most the display's own scale: ScreenCaptureKit scales a display up to fill a larger
@@ -1998,6 +2009,7 @@ package final class StreamCoordinator {
         guard revoked.insert(id).inserted else { return }
         // A menu choice or fetch of it still waiting for its turn is neither made nor read.
         menus.clientRevoked(id)
+        updatePrivacyCurtain()
         // TEST ONLY (SILL_TEST_INPUT_LOG, a synthetic host): where its input stops landing, so a test
         // reads what was posted for it after this line.
         if injector.testLog {
@@ -2530,6 +2542,26 @@ package final class StreamCoordinator {
         audio.shutdown()   // "Audio stopped: Sill is quitting."
         restoreFits(keeping: nil)
         stage.release()
+    }
+
+    private func updatePrivacyCurtain(enabled: Bool? = nil) {
+        guard !synthetic, appKitLoop, !shuttingDown else { return }
+        let enabled = enabled ?? target.hideLocalScreen
+        if enabled, privacyCurtain == nil {
+            privacyCurtain = PrivacyCurtain(excludedDisplay: { [weak self] in self?.stage.display?.displayID },
+                report: { [weak self] problem in self?.status.update { $0.privacyCurtainProblem = problem } })
+        }
+        privacyCurtain?.update(enabled: enabled, devicesPresent: routes.keys.contains { !revoked.contains($0) })
+    }
+
+    package func preparePrivacyForExit() async -> Bool {
+        guard let privacyCurtain, privacyCurtain.needsLock else { return true }
+        shuttingDown = true
+        injector.releaseAll()
+        server.goodbyeAll(Goodbye(reason: Goodbye.quit), within: 0.1)
+        if await privacyCurtain.prepareForExit() { return true }
+        shuttingDown = false
+        return false
     }
 
     /// The CLI's default path at a signal (HostShutdown.installKeyRelease), just before it dies of it:

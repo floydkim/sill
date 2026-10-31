@@ -67,11 +67,13 @@ package struct HostConfig: Equatable, Sendable {
     /// shared field: Noah, 2026-10-27, docs/audio-plan.md's Q8 as revised); each device mutes it for
     /// itself alone, and that never reaches the Mac.
     package var sendAudio: Bool
+    /// Host-only: cover physical monitors during remote use and lock before uncovering.
+    package var hideLocalScreen: Bool
 
-    /// Every knob is required, so the compiler finds each place that builds one when a knob is added.
+    /// Privacy covering defaults off; existing hosts retain their current screen behavior.
     package init(maxFPS: Int, captureScale: CGFloat, bitrate: Int, awayBitrate: Int, awayCaptureScale: CGFloat,
                  prioritizeSpeed: Bool, virtualDisplay: Bool, directWireless: Bool, remoteAccess: Bool, remotePort: Int,
-                 internetAccess: Bool, requirePairing: Bool, shareClipboard: Bool, sendAudio: Bool) {
+                 internetAccess: Bool, requirePairing: Bool, shareClipboard: Bool, sendAudio: Bool, hideLocalScreen: Bool = false) {
         self.maxFPS = maxFPS
         self.captureScale = captureScale
         self.bitrate = bitrate
@@ -86,6 +88,7 @@ package struct HostConfig: Equatable, Sendable {
         self.requirePairing = requirePairing
         self.shareClipboard = shareClipboard
         self.sendAudio = sendAudio
+        self.hideLocalScreen = hideLocalScreen
     }
 
     /// The spike's knobs, formerly the `let`s at the top of the CLI's main.swift: the CLI's values, and
@@ -160,6 +163,7 @@ package struct HostConfig: Equatable, Sendable {
         if requirePairing != new.requirePairing { parts.append("require pairing \(onOff(requirePairing)) → \(onOff(new.requirePairing))") }
         if shareClipboard != new.shareClipboard { parts.append("share clipboard \(onOff(shareClipboard)) → \(onOff(new.shareClipboard))") }
         if sendAudio != new.sendAudio { parts.append("send audio \(onOff(sendAudio)) → \(onOff(new.sendAudio))") }
+        if hideLocalScreen != new.hideLocalScreen { parts.append("hide local screen \(onOff(hideLocalScreen)) → \(onOff(new.hideLocalScreen))") }
         return parts.isEmpty ? "no change" : parts.joined(separator: ", ")
     }
 

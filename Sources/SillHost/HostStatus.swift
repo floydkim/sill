@@ -116,6 +116,7 @@ package struct HostStatusSnapshot: Equatable {
     package var hardwareEncoderStuck = false
     /// The virtual display setting as the host runs it.
     package var virtualDisplayOn = false
+    package var privacyCurtainProblem: String?
     /// Why the virtual display is off for this run: the private API is missing, or the system took
     /// the display away too often. Nil when it is available.
     package var virtualDisplayProblem: String?

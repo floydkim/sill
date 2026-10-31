@@ -72,35 +72,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
 
-    /// Quit ⌘Q, logout and Screen Recording's "Quit & Reopen" all arrive here from the event loop.
-    /// The streamed window goes home and the virtual display goes away before AppKit exits. A
-    /// window in a full-screen Space on the virtual display cannot be moved, so it is taken out of
-    /// full screen first, waiting up to 2 s on a run-loop timer; a 4 s watchdog exits regardless,
-    /// and the atexit restore still runs then. No confirmation. Signals do not come through here:
-    /// HostShutdown handles them synchronously, with exit code 128 + the signal.
+    /// Lock before the privacy cover disappears, then restore the streamed window before quitting.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if terminating { return .terminateNow }
+        guard !terminating else { return .terminateCancel }
         terminating = true
         let coordinator = model.coordinator
-        guard let c = coordinator, c.stagedWindowIsFullScreen else {
-            HostShutdown.releaseForQuit(coordinator: coordinator)
-            return .terminateNow
-        }
-        print("Quit: taking the streamed window out of full screen first.")
-        c.beginLeavingFullScreenForQuit()
-        let deadline = Date().addingTimeInterval(2)
-        let poll = Timer(timeInterval: 0.1, repeats: true) { timer in
-            MainActor.assumeIsolated {
-                guard c.stagedWindowSettled || Date() >= deadline else { return }
-                timer.invalidate()
-                HostShutdown.releaseForQuit(coordinator: c)
-                NSApp.reply(toApplicationShouldTerminate: true)
+        Task { @MainActor in
+            if let c = coordinator, !(await c.preparePrivacyForExit()) {
+                terminating = false
+                NSApp.reply(toApplicationShouldTerminate: false)
+                return
             }
-        }
-        RunLoop.main.add(poll, forMode: .common)
-        DispatchQueue.global().asyncAfter(deadline: .now() + 4) {
-            print("Quit timed out; exiting anyway.")
-            exit(0)
+            if let c = coordinator, c.stagedWindowIsFullScreen {
+                print("Quit: taking the streamed window out of full screen first.")
+                c.beginLeavingFullScreenForQuit()
+                DispatchQueue.global().asyncAfter(deadline: .now() + 4) {
+                    print("Quit timed out; exiting anyway.")
+                    exit(0)
+                }
+                let deadline = Date().addingTimeInterval(2)
+                while !c.stagedWindowSettled, Date() < deadline {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+            }
+            HostShutdown.releaseForQuit(coordinator: coordinator)
+            NSApp.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
     }

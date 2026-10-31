@@ -57,14 +57,21 @@ package enum HostShutdown {
         if began { exit(code) }   // a second Ctrl-C leaves at once
         began = true
         print("Shutting down: putting the window back and removing the virtual display.")
-        // Off the main queue, so a stuck AX call cannot hold the exit hostage; atexit then
-        // restores from the snapshot instead.
-        DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-            print("Shutdown timed out; exiting anyway.")
+        let current = MainActor.assumeIsolated { coordinator() }
+        Task { @MainActor in
+            if let current, !(await current.preparePrivacyForExit()) {
+                print("Shutdown cancelled: keeping the privacy cover until the Mac can lock.")
+                began = false
+                return
+            }
+            // Start the exit watchdog only after the privacy cover can safely disappear.
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
+                print("Shutdown timed out; exiting anyway.")
+                exit(code)
+            }
+            current?.shutdownForExit()
             exit(code)
         }
-        MainActor.assumeIsolated { coordinator()?.shutdownForExit() }
-        exit(code)
     }
 
     /// The CLI's default path (no --virtual-display): a Ctrl-C, `kill` or hangup still ends the
