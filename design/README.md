@@ -1,5 +1,12 @@
 # Design sources
 
+- `ViewerAppIcon.svg` — the Mac viewer's icon, derived from Noah Saffer's
+  `AppIcon.svg`. Keeps Sill's dark tile, space-grey monitor, tilted foreground
+  device and periwinkle three-dot window. A receiving MacBook with a blue screen
+  and pointer replaces the iPad so the viewer is distinct from the host in the
+  Dock. `Scripts/make-viewer-app.sh` uses the same native icon compilation path
+  as the host; the full square is masked by macOS rather than pre-rounded.
+
 - `AppIcon.svg` — the app icon on the 1024 grid, full square (iOS applies the
   squircle). Four groups map to Icon Composer layers: background, iMac, iPad,
   window. Render the asset with:

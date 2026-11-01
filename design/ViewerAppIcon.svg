@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Derived from Sill's AppIcon.svg by Noah Saffer; retains its monitor, slate glass and periwinkle window language. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#1a1a1c"/><stop offset="1" stop-color="#000000"/>
+  </linearGradient>
+  <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#91949e"/><stop offset="1" stop-color="#4c4e56"/>
+  </linearGradient>
+  <linearGradient id="bezel" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#777f92"/><stop offset="0.48" stop-color="#333c50"/><stop offset="1" stop-color="#242b3b"/>
+  </linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+    <stop stop-color="#82a9ff"/><stop offset="0.48" stop-color="#4c79ee"/><stop offset="1" stop-color="#284caa"/>
+  </linearGradient>
+  <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#e0e5f0"/><stop offset="0.34" stop-color="#adb7cd"/><stop offset="1" stop-color="#727e99"/>
+  </linearGradient>
+  <linearGradient id="gloss" x1="0" y1="0" x2="0.7" y2="1">
+    <stop stop-color="#ffffff" stop-opacity="0.42"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0.04"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="back-shadow" x="-25%" y="-25%" width="150%" height="160%">
+    <feDropShadow dx="0" dy="8" stdDeviation="9" flood-opacity="0.3"/>
+  </filter>
+  <filter id="front-shadow" x="-25%" y="-25%" width="150%" height="165%">
+    <feDropShadow dx="0" dy="18" stdDeviation="15" flood-opacity="0.55"/>
+  </filter>
+</defs>
+<!-- Same dark full-bleed tile as Sill; macOS supplies the outer shape. -->
+<rect width="1024" height="1024" fill="url(#background)"/>
+<!-- The original host monitor sits behind the receiving MacBook. -->
+<g filter="url(#back-shadow)">
+  <rect x="398" y="650" width="68" height="76" fill="url(#metal)"/>
+  <rect x="310" y="716" width="244" height="36" rx="18" fill="url(#metal)"/>
+  <rect x="142" y="234" width="620" height="424" rx="56" fill="url(#metal)"/>
+  <rect x="168" y="260" width="568" height="326" rx="34" fill="#090c13"/>
+  <rect x="143.5" y="235.5" width="617" height="421" rx="54.5" fill="url(#gloss)" stroke="#ffffff" stroke-opacity="0.46" stroke-width="3"/>
+</g>
+<!-- A laptop, rather than an iPad, distinguishes the Mac viewer at Dock sizes. -->
+<g transform="rotate(-5 580 560)" filter="url(#front-shadow)">
+  <rect x="300" y="374" width="540" height="340" rx="38" fill="url(#bezel)" stroke="#e1e6f4" stroke-width="3"/>
+  <rect x="323" y="399" width="494" height="289" rx="23" fill="url(#blue)"/>
+  <circle cx="570" cy="386" r="4" fill="#c2cadb" fill-opacity="0.65"/>
+  <!-- Sill's characteristic three-dot periwinkle window. -->
+  <rect x="357" y="430" width="426" height="224" rx="22" fill="#f7f9ff"/>
+  <path d="M379 430 H761 Q783 430 783 452 V476 H357 V452 Q357 430 379 430Z" fill="#b8ccff"/>
+  <circle cx="383" cy="453" r="7" fill="#ffffff" fill-opacity="0.84"/>
+  <circle cx="406" cy="453" r="7" fill="#ffffff" fill-opacity="0.66"/>
+  <circle cx="429" cy="453" r="7" fill="#ffffff" fill-opacity="0.48"/>
+  <rect x="386" y="505" width="166" height="15" rx="7.5" fill="#68718b"/>
+  <rect x="386" y="539" width="228" height="15" rx="7.5" fill="#a1abc4"/>
+  <rect x="386" y="573" width="130" height="15" rx="7.5" fill="#a1abc4"/>
+  <path d="M684 532 V610 L705 592 L723 624 L739 615 L720 584 L749 580Z" fill="#4266be" stroke="#f7f9ff" stroke-width="5" stroke-linejoin="round"/>
+  <rect x="323" y="399" width="494" height="289" rx="23" fill="url(#gloss)"/>
+  <!-- Silver keyboard base makes the receiving device unmistakably a Mac. -->
+  <path d="M277 714 H863 L914 750 Q923 763 905 766 H235 Q217 763 226 750Z" fill="url(#base)" stroke="#d7dfef" stroke-opacity="0.7" stroke-width="2"/>
+  <path d="M498 715 H642 L636 727 Q634 731 627 731 H513 Q506 731 504 727Z" fill="#73809a"/>
+  <path d="M237 754 H903" stroke="#5c6881" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+</g>
+</svg>

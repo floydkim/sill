@@ -7,9 +7,11 @@
     <key>CFBundleDisplayName</key><string>Sill 뷰어</string>
     <key>CFBundleIdentifier</key><string>local.sill.viewer</string>
     <key>CFBundleExecutable</key><string>SillViewer</string>
+    <key>CFBundleIconName</key><string>ViewerAppIcon</string>
+    <key>CFBundleIconFile</key><string>ViewerAppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleVersion</key><string>2</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSLocalNetworkUsageDescription</key><string>Sill 뷰어가 다른 Mac을 찾아 연결하고, 원격 화면을 표시하며 키보드와 마우스 입력을 전달합니다.</string>
