@@ -52,6 +52,7 @@ final class ViewerIntegrationTests: XCTestCase {
         client.connectAddress(address)
         await fulfillment(of: [paired, picture], timeout: 35)
         XCTAssertTrue(client.connected, client.error ?? client.status)
+        XCTAssertTrue(client.status.contains("테스트 영상"))
         XCTAssertTrue(rendered)
         XCTAssertEqual(client.source, .desktop)
         guard let host = client.saved.first(where: { !initialIDs.contains($0.id) }) else {

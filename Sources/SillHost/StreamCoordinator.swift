@@ -275,7 +275,7 @@ package final class StreamCoordinator {
     private var deselectWhenSettled = false
     /// The Mac's cursor shape, streamed to the clients that draw the pointer themselves.
     let cursorShapes = CursorShapeWatcher()
-    private let macName = Host.current().localizedName ?? "Mac"
+    private let macName: String
     /// In every window list (`WindowList.launchID`): a device moving its session from AWDL to the
     /// network checks that the new connection reaches this same running host, since the Bonjour
     /// name it found it by can belong to another Mac too. Per launch, so nothing is stored.
@@ -387,6 +387,7 @@ package final class StreamCoordinator {
         if !appKitLoop { config.virtualDisplay = false }
         self.config = config
         self.synthetic = synthetic
+        self.macName = synthetic ? "테스트 영상 (가상 호스트)" : (Host.current().localizedName ?? "Mac")
         self.appKitLoop = appKitLoop
         self.hostVersion = hostVersion
         let env = ProcessInfo.processInfo.environment
