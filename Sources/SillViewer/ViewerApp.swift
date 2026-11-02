@@ -9,6 +9,7 @@ struct ViewerScreen: View {
     @State private var code = ""
     @State private var showingQuality = false
     @AppStorage("viewer.showScreenList") private var showingScreenList = true
+    @AppStorage("viewer.reverseVerticalScroll") private var reverseVerticalScroll = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -120,6 +121,8 @@ struct ViewerScreen: View {
                         }
                         Text("다른 네트워크에서는 원격 Mac의 Sill에서 원격 접속을 켜고 VPN 주소로 연결하세요. 기본 포트는 7455입니다.")
                             .font(.caption).foregroundStyle(.secondary)
+                        Text("트랙패드에서 오므리거나 펼쳐 화면을 확대하고, Option을 누른 채 스크롤해 확대된 화면을 이동할 수 있습니다.")
+                            .font(.caption).foregroundStyle(.secondary)
                         Text("영상을 클릭하면 키보드 입력을 보낼 수 있습니다. 영상에 포커스가 있는 동안 단축키는 원격 Mac으로 전달됩니다. 종료하려면 위의 연결 해제를 누르세요.")
                             .font(.caption).foregroundStyle(.secondary)
                     }.padding(32).frame(maxWidth: 650)
@@ -148,6 +151,9 @@ struct ViewerScreen: View {
     private var qualityPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("영상 품질").font(.title2.bold())
+            Toggle("상하 스크롤 방향 반전", isOn: $reverseVerticalScroll)
+                .help("원격 화면의 상하 스크롤과 확대된 화면의 이동 방향을 바꿉니다.")
+            Divider()
             if let state = client.hostSettings {
                 let settings = state.settings
                 VStack(spacing: 12) {

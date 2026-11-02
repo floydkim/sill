@@ -15,6 +15,30 @@ final class ViewerTests: XCTestCase {
         XCTAssertNil(ViewerInput.position(.zero, bounds: bounds, video: .zero))
     }
 
+    func testZoomKeepsPointerOnSameRemotePoint() {
+        let bounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
+        let video = CGSize(width: 1000, height: 800)
+        var zoom = ViewerZoom()
+        let point = CGPoint(x: 750, y: 400)
+        zoom.magnify(by: 2, around: point, bounds: bounds, video: video)
+        let rect = zoom.videoRect(bounds: bounds, video: video)
+        XCTAssertEqual((point.x - rect.minX) / rect.width, 0.75, accuracy: 0.000001)
+        XCTAssertEqual(ViewerInput.position(point, in: rect)?.x ?? -1, 0.75, accuracy: 0.000001)
+        XCTAssertEqual(ViewerInput.position(point, in: rect)?.y ?? -1, 0.5, accuracy: 0.000001)
+        zoom.magnify(by: 0.01, around: point, bounds: bounds, video: video)
+        XCTAssertEqual(zoom.videoRect(bounds: bounds, video: video), bounds)
+    }
+
+    func testZoomPanStopsAtPictureEdges() {
+        let bounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
+        var zoom = ViewerZoom()
+        zoom.magnify(by: 2, around: CGPoint(x: 500, y: 400), bounds: bounds, video: bounds.size)
+        zoom.pan(by: CGSize(width: 10000, height: -10000), bounds: bounds, video: bounds.size)
+        let rect = zoom.videoRect(bounds: bounds, video: bounds.size)
+        XCTAssertEqual(rect.minX, bounds.minX)
+        XCTAssertEqual(rect.maxY, bounds.maxY)
+    }
+
     func testKeyboardUsesHIDCodesRatherThanMacKeyCodes() {
         XCTAssertEqual(ViewerInput.hidUsage(for: 0), 0x04) // A
         XCTAssertEqual(ViewerInput.hidUsage(for: 36), 0x28) // Return

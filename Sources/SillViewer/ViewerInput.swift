@@ -12,7 +12,10 @@ enum ViewerInput {
     }
 
     static func position(_ p: CGPoint, bounds: CGRect, video: CGSize, clamp: Bool = false) -> CGPoint? {
-        let rect = videoRect(bounds: bounds, video: video)
+        position(p, in: videoRect(bounds: bounds, video: video), clamp: clamp)
+    }
+
+    static func position(_ p: CGPoint, in rect: CGRect, clamp: Bool = false) -> CGPoint? {
         guard rect.width > 0, rect.height > 0 else { return nil }
         guard clamp || rect.contains(p) else { return nil }
         return CGPoint(x: min(1, max(0, (p.x - rect.minX) / rect.width)),
@@ -124,5 +127,43 @@ enum ViewerTrust {
               let proof = result.proof.flatMap(Base64URL.decode),
               result.recognitionKey.flatMap(Base64URL.decode)?.count == 32 else { return false }
         return PairingProof.isValidMacProof(proof, key: key, macFingerprint: host, deviceFingerprint: device)
+    }
+}
+
+struct ViewerZoom {
+    private(set) var scale: CGFloat = 1
+    private var offset = CGSize.zero
+
+    func videoRect(bounds: CGRect, video: CGSize) -> CGRect {
+        let fitted = ViewerInput.videoRect(bounds: bounds, video: video)
+        return CGRect(x: fitted.midX - fitted.width * scale / 2 + offset.width,
+                      y: fitted.midY - fitted.height * scale / 2 + offset.height,
+                      width: fitted.width * scale, height: fitted.height * scale)
+    }
+
+    mutating func magnify(by factor: CGFloat, around point: CGPoint, bounds: CGRect, video: CGSize) {
+        guard factor.isFinite, factor > 0 else { return }
+        let old = videoRect(bounds: bounds, video: video)
+        guard old.width > 0, old.height > 0 else { return }
+        let next = min(5, max(1, scale * factor))
+        let ratio = next / scale
+        offset.width = point.x - bounds.midX - (point.x - bounds.midX - offset.width) * ratio
+        offset.height = point.y - bounds.midY - (point.y - bounds.midY - offset.height) * ratio
+        scale = next
+        constrain(bounds: bounds, video: video)
+    }
+
+    mutating func pan(by delta: CGSize, bounds: CGRect, video: CGSize) {
+        offset.width += delta.width
+        offset.height += delta.height
+        constrain(bounds: bounds, video: video)
+    }
+
+    private mutating func constrain(bounds: CGRect, video: CGSize) {
+        let fitted = ViewerInput.videoRect(bounds: bounds, video: video)
+        let x = max(0, (fitted.width * scale - bounds.width) / 2)
+        let y = max(0, (fitted.height * scale - bounds.height) / 2)
+        offset.width = min(x, max(-x, offset.width))
+        offset.height = min(y, max(-y, offset.height))
     }
 }

@@ -10,6 +10,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     private var format: CMVideoFormatDescription?
     private var lastParameters: Data?
     private var waitingForKeyframe = true
+    private var zoom = ViewerZoom()
     private var videoSize = CGSize.zero
     private var visibleFraction = CGSize(width: 1, height: 1)
     private var paddingChecked = false
@@ -74,7 +75,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     }
 
     override func resetCursorRects() {
-        addCursorRect(ViewerInput.videoRect(bounds: bounds, video: displayedSize), cursor: cursor)
+        addCursorRect(zoom.videoRect(bounds: bounds, video: displayedSize).intersection(bounds), cursor: cursor)
     }
 
     func clear() {
@@ -83,6 +84,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
         lastParameters = nil
         waitingForKeyframe = true
         videoSize = .zero
+        zoom = ViewerZoom()
         resetPadding()
         layoutVideo()
         marked = NSAttributedString(string: "")
@@ -125,7 +127,8 @@ final class ViewerSurface: NSView, NSTextInputClient {
     }
 
     private func layoutVideo() {
-        let fitted = ViewerInput.videoRect(bounds: bounds, video: displayedSize)
+        zoom.pan(by: .zero, bounds: bounds, video: displayedSize)
+        let fitted = zoom.videoRect(bounds: bounds, video: displayedSize)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         videoLayer.frame = CGRect(x: fitted.minX, y: fitted.minY,
@@ -231,7 +234,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
     }
 
     private func position(_ event: NSEvent, clamp: Bool = false) -> CGPoint? {
-        ViewerInput.position(convert(event.locationInWindow, from: nil), bounds: bounds, video: displayedSize, clamp: clamp)
+        ViewerInput.position(convert(event.locationInWindow, from: nil), in: zoom.videoRect(bounds: bounds, video: displayedSize), clamp: clamp)
     }
 
     private func pointer(_ event: NSEvent, action: PointerAction, clamp: Bool = false) {
@@ -263,9 +266,25 @@ final class ViewerSurface: NSView, NSTextInputClient {
     override func mouseMoved(with event: NSEvent) { pointer(event, action: .move) }
     override func mouseDragged(with event: NSEvent) { pointer(event, action: .move, clamp: true) }
     override func rightMouseDragged(with event: NSEvent) { pointer(event, action: .move, clamp: true) }
+    override func magnify(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(point) else { return }
+        zoom.magnify(by: 1 + event.magnification, around: point, bounds: bounds, video: displayedSize)
+        layoutVideo()
+        window?.invalidateCursorRects(for: self)
+    }
+
     override func scrollWheel(with event: NSEvent) {
+        let reverse = UserDefaults.standard.object(forKey: "viewer.reverseVerticalScroll") as? Bool ?? true
+        if event.modifierFlags.contains(.option), zoom.scale > 1, !scrollActive {
+            zoom.pan(by: CGSize(width: event.scrollingDeltaX, height: event.scrollingDeltaY * (reverse ? 1 : -1)),
+                     bounds: bounds, video: displayedSize)
+            layoutVideo()
+            window?.invalidateCursorRects(for: self)
+            return
+        }
         guard let p = position(event, clamp: scrollActive) else { return }
-        let rect = ViewerInput.videoRect(bounds: bounds, video: displayedSize)
+        let rect = zoom.videoRect(bounds: bounds, video: displayedSize)
         lastPointer = p
         if event.phase.contains(.began) {
             scrollActive = true
@@ -277,7 +296,7 @@ final class ViewerSurface: NSView, NSTextInputClient {
         }
         let factor: Double = event.hasPreciseScrollingDeltas ? 1 : 10
         client?.input(.scroll(x: p.x, y: p.y, dx: event.scrollingDeltaX * factor / rect.width,
-                             dy: event.scrollingDeltaY * factor / rect.height))
+                             dy: event.scrollingDeltaY * factor / rect.height * (reverse ? -1 : 1)))
         if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
             scrollActive = false
             client?.input(.scrollGesture(.ended, x: p.x, y: p.y))
